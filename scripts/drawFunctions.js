@@ -1,11 +1,15 @@
 // drawFunctions.js
+import Globals from "./globals.js";
 
-export function drawCircleF(ctx, x, y, radius, color) {
+
+export function drawCircleF(ctx, posX, posY, radius, color) {
+    posY = Globals.canvasDimensions.height - posY // Flip Y
+
     ctx.fillStyle = color;
     ctx.beginPath();
     ctx.arc(
-        x,
-        y,
+        posX,
+        posY,
         radius,
         0,
         Math.PI * 2
@@ -14,6 +18,8 @@ export function drawCircleF(ctx, x, y, radius, color) {
 }
 
 export function drawRectF(ctx, posX, posY, width, height, color){
+    posY = Globals.canvasDimensions.height - posY - height // Flip Y
+
     ctx.fillStyle = color;
     ctx.fillRect(
         posX,
@@ -23,9 +29,11 @@ export function drawRectF(ctx, posX, posY, width, height, color){
     );
 }
 
-export function drawText(ctx, posX, posY, text, font, fillStyle, textAlign) {
+export function drawText(ctx, posX, posY, fontHeight, text, fillStyle, fontType, textAlign) {
+    posY = Globals.canvasDimensions.height - posY - fontHeight // Flip Y
+
     ctx.fillStyle = fillStyle;
-    ctx.font = font;
+    ctx.font = `${fontHeight}px ${fontType}`;
     ctx.textAlign = textAlign;
 
     ctx.fillText(

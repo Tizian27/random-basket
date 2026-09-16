@@ -24,6 +24,10 @@ h1 {
     margin-bottom: 20px;
 }
 
+.subtitle {
+    color: #777;
+}   
+
 #game-container {
     border: 3px solid #444;
     background: #222;

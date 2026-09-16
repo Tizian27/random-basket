@@ -33,6 +33,10 @@ h1 {
     background: #222;
 }
 
+#debuggingText {
+    white-space: pre;
+}
+
 canvas {
     display: block;
     max-width: 100%;

@@ -14,7 +14,7 @@ let lives = 3;
 
 const keys = {};
 const wind = 0
-const gravity = -1
+const gravity = -0.0001
 
 // --------------------------------
 // Spieler
@@ -38,8 +38,10 @@ function drawCircleF(x, y, radius, color) {
 // --------------------------------
 
 const player1 = {
-    x: 100,
-    y: 100,
+    posX: 100,
+    posY: 100,
+    velY: 0,
+    velX: 0,
     width: 40,
     height: 40,
     speed: 5,
@@ -47,8 +49,10 @@ const player1 = {
 };
 
 const player2 = {
-    x: 300,
-    y: 100,
+    posX: 300,
+    posY: 100,
+    velY: 0,
+    velX: 0,
     width: 40,
     height: 40,
     speed: 5,
@@ -58,8 +62,8 @@ const player2 = {
 let player = [player1, player2]
 
 const ball = {
-    x: 100,
-    y: 100,
+    posX: 100,
+    posY: 100,
     radius: 10,
     speed: 5,
     color: "red"
@@ -89,8 +93,8 @@ function startGame() {
     score = 0;
     lives = 3;
 
-    player1.x = 100;
-    player1.y = 100;
+    player1.posX = 100;
+    player1.posY = 100;
 
     gameRunning = true;
 
@@ -108,53 +112,63 @@ function update() {
 
     // CONTROLS
     if (keys["w"]) {
-        player1.y -= player1.speed;
+        player1.posY -= player1.speed;
     }
 
     if (keys["s"]) {
-        player1.y += player1.speed;
+        player1.posY += player1.speed;
     }
 
     if (keys["a"]) {
-        player1.x -= player1.speed;
+        player1.posX -= player1.speed;
     }
 
     if (keys["d"]) {
-        player1.x += player1.speed;
+        player1.posX += player1.speed;
     }
 
     if (keys["arrowdown"]) {
-        player2.y += player2.speed
+        player2.posY += player2.speed
     }
 
     if (keys["arrowup"]){
-        player2.y -= player2.speed
+        player2.posY -= player2.speed
     }
 
     if(keys["arrowleft"]){
-        player2.x -= player2.speed
+        player2.posX -= player2.speed
     }
 
     if(keys["arrowright"]){
-        player2.x += player2.speed
+        player2.posX += player2.speed
     }
+    
 
     // Spielfeldbegrenzung
     player.forEach(player => {
-        player.x = Math.max(
+        player.posX = Math.max(
             0,
-            Math.min(canvas.width - player.width, player.x)
+            Math.min(canvas.width - player.width, player.posX)
         );
-        player.y = Math.max(
+        player.posY = Math.max(
             0,
-            Math.min(canvas.height - player.height, player.y)
+            Math.min(canvas.height - player.height, player.posY)
         );
     });
 
+
     // PHYSICS
     physicsObjects.forEach(object => {
-        object.velY += gravity;
-        object.velX += wind; //maybe wind?
+
+
+
+        object.velY = Math.max(object.velY += gravity, -0.2)
+
+console.log("Vel: "+ object.velY)
+console.log("Grav: "+ gravity)
+
+            object.velX += wind; //maybe wind?
+        
 
         object.posY += object.velY;
         object.posX += object.velX;
@@ -179,15 +193,15 @@ function draw() {
     player.forEach(player => {
     ctx.fillStyle = player.color;
         ctx.fillRect(
-            player.x,
-            player.y,
+            player.posX,
+            player.posY,
             player.width,
             player.height
         );
     })
 
     // Spieler
-    drawCircleF(ball.x, ball.y, ball.radius, ball.color)
+    drawCircleF(ball.posX, ball.posY, ball.radius, ball.color)
 
     // Start-Hinweis
     if (!gameRunning) {

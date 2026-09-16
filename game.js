@@ -1,3 +1,11 @@
+import * as draw from "./scripts/drawFunctions.js";
+
+
+
+// --------------------------------
+// Elements
+// --------------------------------
+
 /** @type {HTMLCanvasElement} */
 const canvas = document.getElementById("game");
 
@@ -8,30 +16,19 @@ const scoreElement = document.getElementById("score");
 const livesElement = document.getElementById("lives");
 const startButton = document.getElementById("start-button");
 
+
+
+
+// Variables
+
 let gameRunning = false;
 let score = 0;
 let lives = 3;
 
 const keys = {};
 const wind = 0
-const gravity = -0.0001
-
-// --------------------------------
-// Spieler
-// --------------------------------
-
-function drawCircleF(x, y, radius, color) {
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.arc(
-        x,
-        y,
-        radius,
-        0,
-        Math.PI * 2
-    );
-    ctx.fill();
-}
+const gravity = -1 // unit: px/s/s
+const jumpSpeed = 15 // unit: px/s
 
 // --------------------------------
 // Spieler
@@ -111,8 +108,9 @@ function update() {
     }
 
     // CONTROLS
+    // player1
     if (keys["w"]) {
-        player1.posY -= player1.speed;
+        player1.velY = jumpSpeed;
     }
 
     if (keys["s"]) {
@@ -127,12 +125,13 @@ function update() {
         player1.posX += player1.speed;
     }
 
-    if (keys["arrowdown"]) {
-        player2.posY += player2.speed
+    // player2
+    if (keys["arrowup"]){
+        player2.velY = jumpSpeed;
     }
 
-    if (keys["arrowup"]){
-        player2.posY -= player2.speed
+    if (keys["arrowdown"]) {
+        player2.posY += player2.speed
     }
 
     if(keys["arrowleft"]){
@@ -142,7 +141,26 @@ function update() {
     if(keys["arrowright"]){
         player2.posX += player2.speed
     }
-    
+
+    // PHYSICS
+    physicsObjects.forEach((object, i) => {
+
+        // acceleration
+        // not yet - later with physics
+
+        // velocity
+        object.velY = Math.max(object.velY += gravity, -10)
+
+        object.velX += wind; //maybe wind?
+        // position
+        object.posY += object.velY;
+        object.posX += object.velX;
+
+        //debugging
+        if (player.includes(object)){
+            console.log(`p${i} velY: ${object.velY.toFixed(4)}`);
+        }
+    });
 
     // Spielfeldbegrenzung
     player.forEach(player => {
@@ -150,28 +168,11 @@ function update() {
             0,
             Math.min(canvas.width - player.width, player.posX)
         );
+
         player.posY = Math.max(
             0,
             Math.min(canvas.height - player.height, player.posY)
         );
-    });
-
-
-    // PHYSICS
-    physicsObjects.forEach(object => {
-
-
-
-        object.velY = Math.max(object.velY += gravity, -0.2)
-
-console.log("Vel: "+ object.velY)
-console.log("Grav: "+ gravity)
-
-            object.velX += wind; //maybe wind?
-        
-
-        object.posY += object.velY;
-        object.posX += object.velX;
     });
 }
 
@@ -179,41 +180,25 @@ console.log("Grav: "+ gravity)
 // Zeichnen
 // --------------------------------
 
-function draw() {
+function drawFrame() {
 
     // Hintergrund
-    ctx.fillStyle = "#6bbfd9";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    draw.drawRectF(ctx, 0, 0, canvas.width, canvas.height, "#6bbfd9");
     
-    grass_height = 100
-    ctx.fillStyle = "#51c468";
-    ctx.fillRect(0, canvas.height - grass_height, canvas.width, grass_height);
+    const grass_height = 100
+    draw.drawRectF(ctx, 0, canvas.height - grass_height, canvas.width, grass_height, "#51c468")
 
     // Spieler
     player.forEach(player => {
-    ctx.fillStyle = player.color;
-        ctx.fillRect(
-            player.posX,
-            player.posY,
-            player.width,
-            player.height
-        );
+        draw.drawRectF(ctx, player.posX, player.posY, player.width, player.height, player.color)
     })
 
     // Spieler
-    drawCircleF(ball.posX, ball.posY, ball.radius, ball.color)
+    draw.drawCircleF(ctx, ball.posX, ball.posY, ball.radius, ball.color)
 
     // Start-Hinweis
     if (!gameRunning) {
-        ctx.fillStyle = "white";
-        ctx.font = "30px Arial";
-        ctx.textAlign = "center";
-
-        ctx.fillText(
-            "Drücke „Spiel starten“",
-            canvas.width / 2,
-            canvas.height / 2
-        );
+        draw.drawText(ctx, canvas.width / 2, canvas.height / 2, "Drücke „Spiel starten“", "30px Arial", "#fff", "center")
     }
 }
 
@@ -232,9 +217,10 @@ function updateUI() {
 
 function gameLoop() {
     update();
-    draw();
+    drawFrame();
 
     requestAnimationFrame(gameLoop);
 }
 
 gameLoop();
+startGame();

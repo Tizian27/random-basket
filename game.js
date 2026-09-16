@@ -27,6 +27,19 @@ const player = {
     color: "dodgerblue"
 };
 
+const ball = {
+    x: 100,
+    y: 100,
+
+    width: 10,
+    height: 10,
+
+    speed: 5,
+
+    color: "red"
+
+}
+
 // --------------------------------
 // Eingabe
 // --------------------------------
@@ -67,20 +80,36 @@ function update() {
     }
 
     // Bewegung
-    if (keys["w"] || keys["arrowup"]) {
+    if (keys["w"]) {
         player.y -= player.speed;
     }
 
-    if (keys["s"] || keys["arrowdown"]) {
+    if (keys["s"]) {
         player.y += player.speed;
     }
 
-    if (keys["a"] || keys["arrowleft"]) {
+    if (keys["a"]) {
         player.x -= player.speed;
     }
 
-    if (keys["d"] || keys["arrowright"]) {
+    if (keys["d"]) {
         player.x += player.speed;
+    }
+
+    if (keys["arrowdown"]) {
+        ball.y += ball.speed
+    }
+
+    if (keys["arrowup"]){
+        ball.y -= ball.speed
+    }
+
+    if(keys["arrowleft"]){
+        ball.x -= ball.speed
+    }
+
+    if(keys["arrowright"]){
+        ball.x += ball.speed
     }
 
     // Spielfeldbegrenzung
@@ -114,6 +143,18 @@ function draw() {
         player.width,
         player.height
     );
+
+    // Spieler
+    ctx.fillStyle = ball.color;
+
+    ctx.fillRect(
+        ball.x,
+        ball.y,
+        ball.width,
+        ball.height
+    );
+
+
 
     // Start-Hinweis
     if (!gameRunning) {

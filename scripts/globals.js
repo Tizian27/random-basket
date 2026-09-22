@@ -12,3 +12,21 @@ const Globals = {
 };
 
 export default Globals;
+
+
+
+// ENUMS
+
+export const ETextAnchor = Object.freeze({
+    TL: "TopLeft",
+    TC: "TopCenter",
+    TR: "TopRight",
+
+    CL: "CenterLeft",
+    C:  "Center",
+    CR: "CenterRight",
+
+    BL: "BottomLeft",
+    BC: "BottomCenter",
+    BR: "BottomRight",
+});

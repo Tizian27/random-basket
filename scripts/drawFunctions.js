@@ -1,5 +1,28 @@
 // drawFunctions.js
 import Globals from "./globals.js";
+import { ETextAnchor } from "./globals.js";
+
+
+
+export function drawCircleF(ctx, posX, posY, radius, color) {
+    posY = 1 - posY // Flip Y
+
+    // apply un-normalising
+    posX *= Globals.canvasDimensions.width
+    posY *= Globals.canvasDimensions.height
+    radius *= Globals.canvasDimensions.height
+
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(
+        posX,
+        posY,
+        radius,
+        0,
+        Math.PI * 2
+    );
+    ctx.fill();
+}
 
 
 export function drawRectF(ctx, posX, posY, width, height, color){
@@ -27,11 +50,11 @@ export function drawRectF(ctx, posX, posY, width, height, color){
 // an der ein Arm hängt). Breite wird aus dem Seitenverhältnis des Bildes abgeleitet, damit es
 // nicht verzerrt. flipX spiegelt das Sprite horizontal (z.B. damit zwei Spieler einander
 // zugewandt sind statt in dieselbe Richtung zu schauen).
-export function drawSpriteF(ctx, image, x, y, angle, displayHeight, pivotFracY = 1, flipX = false) {
+export function drawSpriteF(ctx, image, posX, posY, angle, displayHeight, pivotFracY = 1, flipX = false) {
     if (!image.complete || !image.naturalWidth) return; // Bild noch nicht geladen
 
-    const pixelX = x * Globals.canvasDimensions.width;
-    const pixelY = (1 - y) * Globals.canvasDimensions.height;
+    const pixelX = posX * Globals.canvasDimensions.width;
+    const pixelY = (1 - posY) * Globals.canvasDimensions.height;
     const pixelHeight = displayHeight * Globals.canvasDimensions.height;
     const pixelWidth = pixelHeight * (image.naturalWidth / image.naturalHeight);
 
@@ -48,13 +71,36 @@ export function drawSpriteF(ctx, image, x, y, angle, displayHeight, pivotFracY =
     ctx.restore();
 }
 
-export function drawText(ctx, posX, posY, fontHeight, text, fillStyle, fontType, textAlign) {
-    posY = 1 - posY // Flip Y (Punkt-Konvention: posX/posY ist die Mitte)
+const anchorOffset = {
+    // x: 0 = left, 0.5 = center, 1 = right
+    // y: 0 = top, 0.5 = center, 1 = bottom
+    [ETextAnchor.TL]: { x: 0,   y: 0   },
+    [ETextAnchor.TC]: { x: 0.5, y: 0   },
+    [ETextAnchor.TR]: { x: 1,   y: 0   },
 
+    [ETextAnchor.CL]: { x: 0,   y: 0.5 },
+    [ETextAnchor.C]:  { x: 0.5, y: 0.5 },
+    [ETextAnchor.CR]: { x: 1,   y: 0.5 },
+
+    [ETextAnchor.BL]: { x: 0,   y: 1   },
+    [ETextAnchor.BC]: { x: 0.5, y: 1   },
+    [ETextAnchor.BR]: { x: 1,   y: 1   },
+};
+
+export function drawText(ctx, posX, posY, fontHeight, text, fillStyle, fontType, textAlign, anchor) {
+    const offset = anchorOffset[anchor];
+
+    // flip Y
+    posY = 1 - posY;
+
+    // apply anchor offsets
+    posX -= offset.x * (ctx.measureText(text).width / Globals.canvasDimensions.width);
+    posY -= offset.y * (fontHeight);
+    
     // apply un-normalising
-    posX *= Globals.canvasDimensions.width
-    posY *= Globals.canvasDimensions.height
-    fontHeight *= Globals.canvasDimensions.height
+    posX *= Globals.canvasDimensions.width;
+    posY *= Globals.canvasDimensions.height;
+    fontHeight *= Globals.canvasDimensions.height;
 
     ctx.fillStyle = fillStyle;
     ctx.font = `${fontHeight}px ${fontType}`;

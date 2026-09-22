@@ -1,9 +1,12 @@
 import * as draw from "./scripts/drawFunctions.js";
-import Globals from "./scripts/globals.js";
+import Globals, { ETextAnchor } from "./scripts/globals.js";
 
 import { PlayerSegment } from "./scripts/playerSegment.js";
 import { resolveCollisions, updateBall, updateRagdoll, applyBalanceImpulse, applyAngularImpulse } from "./scripts/physics.js";
 import { randomSign } from "./scripts/mathFunctions.js";
+
+
+const DRAW_DEBUGGING = true
 
 
 const JUMP_LEAN_IMPULSE = 0.03         // Lean-Impuls beim Absprung, skaliert mit velX (unabhängig von jumpSpeed/gravity)
@@ -46,6 +49,9 @@ bodyImage.src = "./assets/playerBody.png";
 const armImage = new Image();
 armImage.src = "./assets/playerArm.png";
 
+const BallImage = new Image();
+BallImage.src = "./assets/Basketball.png";
+
 // Variables
 let gameRunning = false;
 let score = 0;
@@ -80,7 +86,7 @@ const grassHeight = 1 / 4
 // jetzt fest im Body-Sprite (assets/playerBody.png) - das kippt beim Wackeln als ein starres
 // Ganzes. Nur der Arm (assets/playerArm.png) ist ein zweites, separat rotiertes Sprite.
 const playerWidth = 1 / 20
-const playerHeight = 2 / 15
+const playerHeight = 1 / 5
 const bodyDisplayHeight = playerHeight
 const armDisplayHeight = bodyDisplayHeight * 0.5   // Arm ca. halb so hoch wie der Körper (Vorlage-Proportion)
 const armShoulderFrac = 0.78                        // Anteil von bodyDisplayHeight, wo die Schulter sitzt
@@ -97,7 +103,9 @@ const player1 = {
     balance: 0,     // treibt den Ziel-Winkel des Torsos (Lean nach links/rechts)
     balanceVel: 0,
     framesSinceJump: 0, // zählt hoch, solange nicht gesprungen wird -> steuert, ob noch gewackelt wird
-    facingFlip: false // Sprite zeigt nativ nach links
+    facingFlip: false, // Sprite zeigt nativ nach links
+    
+    color: "#4b3fd3"
 };
 
 // torso hält nur noch die Lean-Winkel-Physik (angle/angularVel).
@@ -114,7 +122,9 @@ const player2 = {
     balance: 0,
     balanceVel: 0,
     framesSinceJump: 0,
-    facingFlip: true // gespiegelt, damit Spieler 2 in die andere Richtung schaut als Spieler 1
+    facingFlip: true, // gespiegelt, damit Spieler 2 in die andere Richtung schaut als Spieler 1
+
+    color: "#dd5f5f"
 };
 
 player2.torso = new PlayerSegment(Math.PI);
@@ -126,14 +136,17 @@ const basketBall = {
     posY: 1/2,
     velY: 0,
     velX: 0,
-    radius: 1/50,
+    angle: 0,
+    radius: 1/25,
 
     get width() {
         return this.radius * 2;
     },
     get height() {
         return this.radius * 2;
-    }
+    },
+    
+    color: "#ff9d13"
 }
 
 let physicsObjects = [player1, player2, basketBall]
@@ -322,7 +335,6 @@ function drawFrame() {
     
     // Hintergrund
     draw.drawRectF(ctx, 0, 0, 1, 1, "#6bbfd9");
-    
     draw.drawRectF(ctx, 0, 0, 1, grassHeight, "#51c468");
 
     // Spieler: Body-Sprite (Kopf+Torso+Beine) kippt als ein starres Ganzes von den Füßen aus,
@@ -334,13 +346,16 @@ function drawFrame() {
         draw.drawSpriteF(ctx, armImage, pose.shoulderX, pose.shoulderY, pose.lean, armDisplayHeight, 0, player.facingFlip)
     })
 
-    // Basketball (nur das Emoji - vorher wurde zusätzlich ein einfacher Kreis darunter
-    // gezeichnet, das sah wie zwei Bälle an leicht versetzter Position aus)
-    draw.drawText(ctx, basketBall.posX, basketBall.posY, basketBall.radius * 2.4, "🏀", "#fff", "Arial", "center")
+    // Basketball
+    draw.drawText(ctx, basketBall.posX, basketBall.posY, basketBall.radius * 2.4, "🏀", "#fff", "Arial", "center", ETextAnchor.C);
+    draw.drawSpriteF(ctx, BallImage, basketBall.posX, basketBall.posY, basketBall.angle, basketBall.radius * 2, 0, false);
+    if (DRAW_DEBUGGING) {
+        draw.drawCircleF(ctx, basketBall.posX, basketBall.posY, basketBall.radius, basketBall.color);
+    }
 
     // Start-Hinweis
     if (!gameRunning) {
-        draw.drawText(ctx, 1/2, 1/2, 1/8, "Drücke „Spiel starten“", "#fff", "Arial", "center");
+        draw.drawText(ctx, 1/2, 1/2, 1/8, "Drücke „Spiel starten“", "#fff", "Arial", "center", ETextAnchor.C);
     }
 }
 

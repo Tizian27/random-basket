@@ -1,15 +1,16 @@
 import * as draw from "./scripts/drawFunctions.js";
-import Globals, { ETextAnchor } from "./scripts/globals.js";
+import { globals, ETextAnchor } from "./scripts/globals.js";
 
 import { resolveCollisions, updateBall, updateRagdoll, applyBalanceImpulse, applyAngularImpulse } from "./scripts/physics.js";
 import { randomSign, randomBetween } from "./scripts/utils/mathFunctions.js";
 import { Player } from "./scripts/objects/player.js";
 import { Ball } from "./scripts/objects/ball.js";
+import { Vec2d } from "./scripts/utils/vec2d.js";
 
 const DRAW_DEBUGGING = true
 
 
-const JUMP_LEAN_IMPULSE = 0.03         // Lean-Impuls beim Absprung, skaliert mit velX (unabhängig von jumpSpeed/gravity)
+
 // LAND_IMPACT_FACTOR/LAND_SWING_IMPULSE skalieren mit der Aufprall-velY, die durch die Mond-
 // Gravitation jetzt ~50x kleiner ist als vorher (jumpSpeed sank von 1/15 auf 0.00135) - um 1:1
 // dieselbe Wackel-/Pendel-Stärke wie vorher zu behalten, sind beide Werte um denselben Faktor
@@ -19,7 +20,6 @@ const LAND_SWING_IMPULSE = 600         // Dreh-Impuls auf den Torso beim Landen;
 // War seit der Mond-Gravitation nicht mehr neu skaliert (jumpSpeed sank von 1/15 auf 0.0014).
 // Bei vollem Lean (MAX_BALANCE=1.1) jetzt ca. 6x jumpSpeed seitlich -> der Sprung geht klar
 // überwiegend in die Richtung, in die gerade gependelt wird, statt nur leicht beeinflusst zu sein.
-const LEAN_JUMP_PUSH = 0.007           // Oberkörper-Neigung schubst beim Springen seitwärts mit
 const GROUND_FRICTION = 0.85           // bremst seitliche Bewegung am Boden ab (sonst gleitet die Figur endlos)
 
 
@@ -45,10 +45,8 @@ const debugTextElement = document.getElementById("debuggingText");
 // dadurch optisch identisch aus, nur an unterschiedlicher Position.
 const bodyImage = new Image();
 bodyImage.src = "./assets/playerBody.png";
-
 const armImage = new Image();
 armImage.src = "./assets/playerArm.png";
-
 const BallImage = new Image();
 BallImage.src = "./assets/Basketball.png";
 
@@ -59,18 +57,10 @@ let lives = 3;
 let debugText = ""
 
 const keys = {};
-const wind = 0
-
-// viel Airtime bei geringer Sprunghöhe (nur Gravitation zu senken macht Sprünge sowohl höher als
-// auch länger, das Absenken beider Werte zusammen hält die Höhe niedrig, streckt aber die Zeit).
-// Ausgelegt auf ~0.06 Sprunghöhe (rechnerisch: jumpSpeed²/(2*|gravity|)) bei ~180 Frames
-// (~3s bei 60fps) Gesamt-Flugzeit (rechnerisch: 2*jumpSpeed/|gravity|).
-const gravity = -0.0010 // unit: px/s/s
-const jumpSpeed = 0.0070 // unit: px/s
 
 // ini
-Globals.canvasDimensions.width = canvas.width;
-Globals.canvasDimensions.height = canvas.height;
+globals.canvasDimensions.width = canvas.width;
+globals.canvasDimensions.height = canvas.height;
 
 const grassHeight = 1 / 4
 
@@ -89,28 +79,27 @@ const playerWidth = 1 / 20
 const playerHeight = 1 / 5
 const bodyDisplayHeight = playerHeight
 const armDisplayHeight = bodyDisplayHeight * 0.5   // Arm ca. halb so hoch wie der Körper (Vorlage-Proportion)
-const armShoulderFrac = 0.78                        // Anteil von bodyDisplayHeight, wo die Schulter sitzt
-const armSideOffset = bodyDisplayHeight * -0.1      // seitlicher Versatz des Arms vom Körperzentrum
+const armShoulderFrac = 0.78                       // Anteil von bodyDisplayHeight, wo die Schulter sitzt
+const armSideOffset = bodyDisplayHeight * -0.1     // seitlicher Versatz des Arms vom Körperzentrum
 
 const player1 = new Player({
-    posX: 3/4,
-    posY: grassHeight,
+    pos: new Vec2d(3/4, grassHeight - 1/8),
     facingFlip: false,
-    color: "#4b3fd3"
+    color: "#4b3fd3",
+    jumpButton: "w",
 });
 
 const player2 = new Player({
-    posX: 1/4,
-    posY: grassHeight,
+    pos: new Vec2d(1/4, grassHeight),
     facingFlip: true,
-    color: "#dd5f5f"
+    color: "#dd5f5f",
+    jumpButton: "arrowup",
 });
 
 let players = [player1, player2];
 
 const basketBall = new Ball({
-    posX: 1/2,
-    posY: 1/2,
+    pos: new Vec2d(1/2, 1/2),
     radius: 1/25,
     color: "#ff9d13"
 });
@@ -139,31 +128,24 @@ function startGame() {
     score = 0;
     lives = 3;
 
-    player1.posX = 1/4;
-    player1.posY = grassHeight;
-    player1.velX = 0;
-    player1.velY = 0;
+    player1.pos.set(randomBetween(1/8, 3/8), grassHeight);
+    player1.vel.set(0, 0);
 
-    player2.posX = 3/4;
-    player2.posY = grassHeight;
-    player2.velX = 0;
-    player2.velY = 0;
+    player2.pos.set(randomBetween(5/8, 7/8), grassHeight);
+    player2.vel.set(0, 0);
 
     players.forEach(p => {
         p.onGround = true;
         p.balance = 0;
         p.balanceVel = 0;
         p.framesSinceJump = 0;
+
         p.torso.angle = Math.PI;
         p.torso.angularVel = 0;
-        // Arm braucht keinen Reset - seine Pose wird jeden Frame in getBodyPose() starr
-        // aus der aktuellen Torso-Neigung abgeleitet.
     });
 
-    basketBall.posX = 1/2;
-    basketBall.posY = 1/2;
-    basketBall.velX = 0;
-    basketBall.velY = 0;
+    basketBall.pos.set(1/2, 1/2);
+    basketBall.vel.set(0, 0);
 
     gameRunning = true;
 
@@ -181,54 +163,18 @@ function update() {
         return;
     }
 
-    const player1Active = keys["w"];
-    const player2Active = keys["arrowup"];
-
     // CONTROLS
-    // player1
-    if (keys["w"] && player1.onGround) {
-        const inertiaLean = -player1.velX * JUMP_LEAN_IMPULSE + (Math.random() - 0.5) * 0.1;
-
-        player1.velY = jumpSpeed; // positiv = nach oben (posY wächst nach oben)
-        player1.velX += player1.balance * LEAN_JUMP_PUSH; // Neigung des Oberkörpers schubst den Sprung seitwärts
-        player1.onGround = false;
-        player1.framesSinceJump = 0; // Timer neu starten -> Wackeln bleibt wieder eine Weile aktiv
-
-        applyBalanceImpulse(player1, inertiaLean);
-    }
-
-    // player2
-    if (keys["arrowup"] && player2.onGround) {
-        const inertiaLean = -player2.velX * JUMP_LEAN_IMPULSE + (Math.random() - 0.5) * 0.1;
-
-        player2.velY = jumpSpeed;
-        player2.velX += player2.balance * LEAN_JUMP_PUSH;
-        player2.onGround = false;
-        player2.framesSinceJump = 0;
-
-        applyBalanceImpulse(player2, inertiaLean);
-    }
+    players.forEach(player => {
+        player.handleInput(keys)
+    });
 
     // PHYSICS
     physicsObjects.forEach((object, i) => {
-
-        // acceleration
-        // not yet - later with physics
-
-        // velocity
-        object.velY = Math.max(object.velY += gravity, -1/20)
-
-        object.velX += wind; //maybe wind?
-        // position
-        object.posY += object.velY;
-        object.posX += object.velX;
-
-        // Spielfeldbegrenzung seitlich (Boden wird unten pro Objekttyp behandelt)
-        object.posX = Math.max(0, Math.min(1 - object.width, object.posX));
+        object.update();
 
         //debugging
         if (players.includes(object)){
-            debugText += `\nplayer ${i} - pos: (${object.posX.toFixed(4)}, ${object.posY.toFixed(4)}) | vel: (${object.velX.toFixed(4)}, ${object.velY.toFixed(4)})`;
+            debugText += `\nplayer ${i} - pos: (${object.pos.x.toFixed(4)}, ${object.pos.y.toFixed(4)}) | vel: (${object.vel.x.toFixed(4)}, ${object.vel.y.toFixed(4)})`;
         }
     });
 
@@ -239,21 +185,21 @@ function update() {
     players.forEach(p => {
         const wasAirborne = !p.onGround;
 
-        if (p.posY <= grassHeight) {
+        if (p.pos.y <= grassHeight) {
             if (wasAirborne) {
                 // Aufprall-Wobble: je härter die Landung, desto stärker der Ausschlag.
                 // Direkter Dreh-Impuls auf den Torso sorgt für ein aktives Pendeln, das über
                 // SEGMENT_SPRING/SEGMENT_DAMPING von selbst langsamer wird bis zum Stillstand;
                 // der kleine balance-Nudge sorgt zusätzlich für einen leichten Nachlauf-Lean.
-                applyAngularImpulse(p.torso, randomSign() * p.velY * LAND_SWING_IMPULSE);
-                applyBalanceImpulse(p, randomSign() * p.velY * LAND_IMPACT_FACTOR);
+                applyAngularImpulse(p.torso, randomSign() * p.vel.y * LAND_SWING_IMPULSE);
+                applyBalanceImpulse(p, randomSign() * p.vel.y * LAND_IMPACT_FACTOR);
             }
-            p.posY = grassHeight;
-            p.velY = 0;
+            p.pos.y = grassHeight;
+            p.vel.y = 0;
             p.onGround = true;
-            p.velX *= GROUND_FRICTION; // bremst den Lean-Schub ab, statt endlos weiterzugleiten
+            p.vel.x *= GROUND_FRICTION; // bremst den Lean-Schub ab, statt endlos weiterzugleiten
         } else {
-            p.posY = Math.min(1 - p.height, p.posY);
+            p.pos.y = Math.min(1 - p.height, p.pos.y);
         }
     });
 
@@ -262,17 +208,17 @@ function update() {
     updateBall(basketBall, grassHeight);
 
     // Ragdoll-Wobble pro Spieler (Balance-Drift + Segment-Federphysik)
-    updateRagdoll(player1, player1Active);
-    updateRagdoll(player2, player2Active);
+    updateRagdoll(player1, player1.jumpButton);
+    updateRagdoll(player2, player2.jumpButton);
 }
 
-// Füße sind der feste Ankerpunkt (player.posY = Unterkante, siehe drawRectF-Konvention) - das
+// Füße sind der feste Ankerpunkt (player.pos.y = Unterkante, siehe drawRectF-Konvention) - das
 // Body-Sprite (Kopf+Torso+Beine in einem Bild) dreht sich starr darum. "lean" ist die Abweichung
 // von der Senkrechten (torso.angle - Math.PI), 0 = aufrecht. Für den Arm wird zusätzlich der
 // Schulterpunkt berechnet: ein Stück "lean"-Richtung nach oben + seitlich versetzt vom Körper.
 function getBodyPose(player) {
-    const feetX = player.posX + player.width / 2;
-    const feetY = player.posY;
+    const feetX = player.pos.x + player.width / 2;
+    const feetY = player.pos.y;
     const lean = player.torso.angle - Math.PI;
 
     // "Nach oben"-Richtung des Körpers bei aktueller Neigung (0 = senkrecht)
@@ -296,8 +242,8 @@ function getBodyPose(player) {
 
 function drawFrame() {
     // Global Canvas Update
-    Globals.canvasDimensions.width = canvas.width;
-    Globals.canvasDimensions.height = canvas.height;
+    globals.canvasDimensions.width = canvas.width;
+    globals.canvasDimensions.height = canvas.height;
     
     // Hintergrund
     draw.drawRectF(ctx, 0, 0, 1, 1, "#6bbfd9");
@@ -313,10 +259,10 @@ function drawFrame() {
     })
 
     // Basketball
-    draw.drawText(ctx, basketBall.posX, basketBall.posY, basketBall.radius * 2.4, "🏀", "#fff", "Arial", "center", ETextAnchor.C);
-    draw.drawSpriteF(ctx, BallImage, basketBall.posX, basketBall.posY, basketBall.angle, basketBall.radius * 2, 0, false);
+    draw.drawText(ctx, basketBall.pos.x, basketBall.pos.y, basketBall.radius * 2.4, "🏀", "#fff", "Arial", "center", ETextAnchor.C);
+    draw.drawSpriteF(ctx, BallImage, basketBall.pos.x, basketBall.pos.y, basketBall.angle, basketBall.radius * 2, 0, false);
     if (DRAW_DEBUGGING) {
-        draw.drawCircleF(ctx, basketBall.posX, basketBall.posY, basketBall.radius, basketBall.color);
+        draw.drawCircleF(ctx, basketBall.pos.x, basketBall.pos.y, basketBall.radius, basketBall.color);
     }
 
     // Start-Hinweis

@@ -1,5 +1,5 @@
 // drawFunctions.js
-import Globals from "./globals.js";
+import { globals } from "./globals.js";
 import { ETextAnchor } from "./globals.js";
 
 
@@ -8,9 +8,9 @@ export function drawCircleF(ctx, posX, posY, radius, color) {
     posY = 1 - posY // Flip Y
 
     // apply un-normalising
-    posX *= Globals.canvasDimensions.width
-    posY *= Globals.canvasDimensions.height
-    radius *= Globals.canvasDimensions.height
+    posX *= globals.canvasDimensions.width
+    posY *= globals.canvasDimensions.height
+    radius *= globals.canvasDimensions.height
 
     ctx.fillStyle = color;
     ctx.beginPath();
@@ -29,10 +29,10 @@ export function drawRectF(ctx, posX, posY, width, height, color){
     posY = 1 - posY - height // Flip Y
 
     // apply un-normalising
-    posX *= Globals.canvasDimensions.width
-    posY *= Globals.canvasDimensions.height
-    width *= Globals.canvasDimensions.width
-    height *= Globals.canvasDimensions.height
+    posX *= globals.canvasDimensions.width
+    posY *= globals.canvasDimensions.height
+    width *= globals.canvasDimensions.width
+    height *= globals.canvasDimensions.height
 
     ctx.fillStyle = color;
     ctx.fillRect(
@@ -53,9 +53,9 @@ export function drawRectF(ctx, posX, posY, width, height, color){
 export function drawSpriteF(ctx, image, posX, posY, angle, displayHeight, pivotFracY = 1, flipX = false) {
     if (!image.complete || !image.naturalWidth) return; // Bild noch nicht geladen
 
-    const pixelX = posX * Globals.canvasDimensions.width;
-    const pixelY = (1 - posY) * Globals.canvasDimensions.height;
-    const pixelHeight = displayHeight * Globals.canvasDimensions.height;
+    const pixelX = posX * globals.canvasDimensions.width;
+    const pixelY = (1 - posY) * globals.canvasDimensions.height;
+    const pixelHeight = displayHeight * globals.canvasDimensions.height;
     const pixelWidth = pixelHeight * (image.naturalWidth / image.naturalHeight);
 
     ctx.save();
@@ -94,13 +94,13 @@ export function drawText(ctx, posX, posY, fontHeight, text, fillStyle, fontType,
     posY = 1 - posY;
 
     // apply anchor offsets
-    posX -= offset.x * (ctx.measureText(text).width / Globals.canvasDimensions.width);
+    posX -= offset.x * (ctx.measureText(text).width / globals.canvasDimensions.width);
     posY -= offset.y * (fontHeight);
     
     // apply un-normalising
-    posX *= Globals.canvasDimensions.width;
-    posY *= Globals.canvasDimensions.height;
-    fontHeight *= Globals.canvasDimensions.height;
+    posX *= globals.canvasDimensions.width;
+    posY *= globals.canvasDimensions.height;
+    fontHeight *= globals.canvasDimensions.height;
 
     ctx.fillStyle = fillStyle;
     ctx.font = `${fontHeight}px ${fontType}`;

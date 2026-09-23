@@ -99,19 +99,19 @@ export function updateRagdoll(player, activeInput) {
 
 // Einfache AABB-Trennung + Wackel-Impuls, keine echte Rigid-Body-Auflösung
 export function resolvePlayerCollision(a, b) {
-    const overlapX = Math.min(a.posX + a.width, b.posX + b.width) - Math.max(a.posX, b.posX);
-    const overlapY = Math.min(a.posY + a.height, b.posY + b.height) - Math.max(a.posY, b.posY);
+    const overlapX = Math.min(a.pos.x + a.width, b.pos.x + b.width) - Math.max(a.pos.x, b.pos.x);
+    const overlapY = Math.min(a.pos.y + a.height, b.pos.y + b.height) - Math.max(a.pos.y, b.pos.y);
 
     if (overlapX <= 0 || overlapY <= 0) {
         return;
     }
 
-    const pushDir = a.posX <= b.posX ? -1 : 1; // a nach links, b nach rechts (oder umgekehrt)
+    const pushDir = a.pos.x <= b.pos.x ? -1 : 1; // a nach links, b nach rechts (oder umgekehrt)
     const separation = overlapX / 2;
-    a.posX += pushDir * separation;
-    b.posX -= pushDir * separation;
+    a.pos.x += pushDir * separation;
+    b.pos.x -= pushDir * separation;
 
-    const relSpeed = Math.abs(a.velX - b.velX) + Math.abs(a.velY - b.velY);
+    const relSpeed = Math.abs(a.vel.x - b.vel.x) + Math.abs(a.vel.y - b.vel.y);
     const impulse = PLAYER_BUMP_IMPULSE + relSpeed * 0.05;
 
     applyBalanceImpulse(a, -pushDir * impulse);
@@ -122,11 +122,11 @@ export function resolvePlayerCollision(a, b) {
 
 // Kreis-Distanz-Check (Ball) gegen die Bounding-Box-Mitte des Spielers
 function resolveBallCollision(player, ball) {
-    const centerX = player.posX + player.width / 2;
-    const centerY = player.posY + player.height / 2;
+    const centerX = player.pos.x + player.width / 2;
+    const centerY = player.pos.y + player.height / 2;
 
-    const dx = ball.posX - centerX;
-    const dy = ball.posY - centerY;
+    const dx = ball.pos.x - centerX;
+    const dy = ball.pos.y - centerY;
     const dist = Math.hypot(dx, dy) || 0.0001; // Division durch 0 vermeiden
     const collisionRange = ball.radius + player.width;
 
@@ -138,13 +138,13 @@ function resolveBallCollision(player, ball) {
     const ny = dy / dist;
 
     // Ball wegstoßen, mit etwas Schwung vom Spieler
-    ball.velX = nx * BALL_BOUNCE_SPEED + player.velX * 0.4;
-    ball.velY = ny * BALL_BOUNCE_SPEED + player.velY * 0.4 + BALL_BOUNCE_LIFT;
+    ball.vel.x = nx * BALL_BOUNCE_SPEED + player.vel.x * 0.4;
+    ball.vel.y = ny * BALL_BOUNCE_SPEED + player.vel.y * 0.4 + BALL_BOUNCE_LIFT;
 
     // aus der Überlappung herausschieben, damit der Ball nicht "klebt"
     const pushOut = collisionRange - dist;
-    ball.posX += nx * pushOut;
-    ball.posY += ny * pushOut;
+    ball.pos.x += nx * pushOut;
+    ball.pos.y += ny * pushOut;
 
     // leichter Ausweich-Wobble beim Spieler
     applyBalanceImpulse(player, -nx * BALL_BUMP_IMPULSE);
@@ -166,19 +166,19 @@ export function resolveCollisions(player1, player2, basketBall) {
 // Ball an Seitenwänden und auf der Wiesenoberkante abprallen lassen (mit Energieverlust).
 // Läuft im selben normalisierten Modellraum (0..1, posY wächst nach oben) wie die Spieler.
 export function updateBallBounds(ball, grassHeight) {
-    if (ball.posX - ball.radius < 0) {
-        ball.posX = ball.radius;
-        ball.velX = Math.abs(ball.velX) * BALL_WALL_RESTITUTION;
-    } else if (ball.posX + ball.radius > 1) {
-        ball.posX = 1 - ball.radius;
-        ball.velX = -Math.abs(ball.velX) * BALL_WALL_RESTITUTION;
+    if (ball.pos.x - ball.radius < 0) {
+        ball.pos.x = ball.radius;
+        ball.vel.x = Math.abs(ball.vel.x) * BALL_WALL_RESTITUTION;
+    } else if (ball.pos.x + ball.radius > 1) {
+        ball.pos.x = 1 - ball.radius;
+        ball.vel.x = -Math.abs(ball.vel.x) * BALL_WALL_RESTITUTION;
     }
 
     const minBallY = grassHeight + ball.radius;
-    if (ball.posY < minBallY) {
-        ball.posY = minBallY;
-        ball.velY = Math.abs(ball.velY) * BALL_GROUND_RESTITUTION;
-        ball.velX *= BALL_GROUND_FRICTION; // bremst seitlich ab, statt endlos weiterzurollen
+    if (ball.pos.y < minBallY) {
+        ball.pos.y = minBallY;
+        ball.vel.y = Math.abs(ball.vel.y) * BALL_GROUND_RESTITUTION;
+        ball.vel.x *= BALL_GROUND_FRICTION; // bremst seitlich ab, statt endlos weiterzurollen
     }
 }
 
@@ -186,11 +186,11 @@ export function updateBallBounds(ball, grassHeight) {
 // verliert automatisch Energie) setzt eine Spielerkollision die Geschwindigkeit einfach neu -
 // ohne diesen Clamp gäbe es keinen Deckel, falls mehrere Treffer kurz hintereinander passieren.
 function clampBallSpeed(ball, ball_max_speed) {
-    const speed = Math.hypot(ball.velX, ball.velY);
+    const speed = Math.hypot(ball.vel.x, ball.vel.y);
     if (speed > ball_max_speed) {
         const scale = ball_max_speed / speed;
-        ball.velX *= scale;
-        ball.velY *= scale;
+        ball.vel.x *= scale;
+        ball.vel.y *= scale;
     }
 }
 

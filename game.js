@@ -1,10 +1,10 @@
 import * as draw from "./scripts/drawFunctions.js";
 import Globals, { ETextAnchor } from "./scripts/globals.js";
 
-import { PlayerSegment } from "./scripts/playerSegment.js";
 import { resolveCollisions, updateBall, updateRagdoll, applyBalanceImpulse, applyAngularImpulse } from "./scripts/physics.js";
 import { randomSign } from "./scripts/mathFunctions.js";
-
+import { Player } from "./scripts/objects/player.js";
+import { Ball } from "./scripts/objects/ball.js";
 
 const DRAW_DEBUGGING = true
 
@@ -92,62 +92,28 @@ const armDisplayHeight = bodyDisplayHeight * 0.5   // Arm ca. halb so hoch wie d
 const armShoulderFrac = 0.78                        // Anteil von bodyDisplayHeight, wo die Schulter sitzt
 const armSideOffset = bodyDisplayHeight * -0.1      // seitlicher Versatz des Arms vom Körperzentrum
 
-const player1 = {
+const player1 = new Player({
     posX: 3/4,
     posY: grassHeight,
-    velY: 0,
-    velX: 0,
-    width: playerWidth,
-    height: playerHeight,
-    onGround: true,
-    balance: 0,     // treibt den Ziel-Winkel des Torsos (Lean nach links/rechts)
-    balanceVel: 0,
-    framesSinceJump: 0, // zählt hoch, solange nicht gesprungen wird -> steuert, ob noch gewackelt wird
-    facingFlip: false, // Sprite zeigt nativ nach links
-    
+    facingFlip: false,
     color: "#4b3fd3"
-};
+});
 
-// torso hält nur noch die Lean-Winkel-Physik (angle/angularVel).
-player1.torso = new PlayerSegment(Math.PI); // Ruhewinkel: aufrecht
-
-const player2 = {
+const player2 = new Player({
     posX: 1/4,
     posY: grassHeight,
-    velY: 0,
-    velX: 0,
-    width: playerWidth,
-    height: playerHeight,
-    onGround: true,
-    balance: 0,
-    balanceVel: 0,
-    framesSinceJump: 0,
-    facingFlip: true, // gespiegelt, damit Spieler 2 in die andere Richtung schaut als Spieler 1
-
+    facingFlip: true,
     color: "#dd5f5f"
-};
+});
 
-player2.torso = new PlayerSegment(Math.PI);
+let players = [player1, player2];
 
-let player = [player1, player2]
-
-const basketBall = {
+const basketBall = new Ball({
     posX: 1/2,
     posY: 1/2,
-    velY: 0,
-    velX: 0,
-    angle: 0,
     radius: 1/25,
-
-    get width() {
-        return this.radius * 2;
-    },
-    get height() {
-        return this.radius * 2;
-    },
-    
     color: "#ff9d13"
-}
+});
 
 let physicsObjects = [player1, player2, basketBall]
 
@@ -183,7 +149,7 @@ function startGame() {
     player2.velX = 0;
     player2.velY = 0;
 
-    player.forEach(p => {
+    players.forEach(p => {
         p.onGround = true;
         p.balance = 0;
         p.balanceVel = 0;
@@ -261,7 +227,7 @@ function update() {
         object.posX = Math.max(0, Math.min(1 - object.width, object.posX));
 
         //debugging
-        if (player.includes(object)){
+        if (players.includes(object)){
             debugText += `\nplayer ${i} - pos: (${object.posX.toFixed(4)}, ${object.posY.toFixed(4)}) | vel: (${object.velX.toFixed(4)}, ${object.velY.toFixed(4)})`;
         }
     });
@@ -270,7 +236,7 @@ function update() {
     debugTextElement.textContent = debugText;
 
     // Boden: Spieler stehen auf der Wiesenoberkante (nicht am Canvas-Rand)
-    player.forEach(p => {
+    players.forEach(p => {
         const wasAirborne = !p.onGround;
 
         if (p.posY <= grassHeight) {
@@ -339,7 +305,7 @@ function drawFrame() {
 
     // Spieler: Body-Sprite (Kopf+Torso+Beine) kippt als ein starres Ganzes von den Füßen aus,
     // der Arm ist ein zweites Sprite, das an der Schulter mitschwingt.
-    player.forEach(player => {
+    players.forEach(player => {
         const pose = getBodyPose(player);
 
         draw.drawSpriteF(ctx, bodyImage, pose.feetX, pose.feetY, pose.lean, bodyDisplayHeight, 1, player.facingFlip)

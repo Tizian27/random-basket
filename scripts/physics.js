@@ -1,5 +1,5 @@
 // physics.js
-import { clamp } from "./mathFunctions.js"
+import { clamp } from "./utils/mathFunctions.js"
 
 
 

@@ -2,7 +2,7 @@ import * as draw from "./scripts/drawFunctions.js";
 import Globals, { ETextAnchor } from "./scripts/globals.js";
 
 import { resolveCollisions, updateBall, updateRagdoll, applyBalanceImpulse, applyAngularImpulse } from "./scripts/physics.js";
-import { randomSign } from "./scripts/mathFunctions.js";
+import { randomSign, randomBetween } from "./scripts/utils/mathFunctions.js";
 import { Player } from "./scripts/objects/player.js";
 import { Ball } from "./scripts/objects/ball.js";
 

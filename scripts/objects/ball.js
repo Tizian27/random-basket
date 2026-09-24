@@ -2,6 +2,7 @@
 
 import { globals, ETextAnchor } from "../globals.js";
 import * as draw from "../drawFunctions.js";
+import { drawArrow } from "../drawShapes.js";
 import { Vec2d } from "../utils/vec2d.js";
 import { PhysicsObject } from "./physicsObjects.js";
 
@@ -44,24 +45,26 @@ export class Ball extends PhysicsObject{
 
     update() {
         super.update();
-
-        // Spielfeldbegrenzung seitlich (Boden wird unten pro Objekttyp behandelt)
-        this.pos.x = Math.max(0, Math.min(1 - this.width, this.pos.x));
+        
+        updateBallInBounds(this, globals.grassHeight);
+        clampBallSpeed(this, BALL_MAX_SPEED);
     }
 
     render(ctx) {
-        draw.drawText(ctx, this.pos.x, this.pos.y, this.radius * 2.4, "🏀", "#fff", "Arial", "center", ETextAnchor.C);
-        draw.drawSpriteF(ctx, BallImage, this.pos.x, this.pos.y, this.angle, this.radius * 2, 0, false);
-        if (globals.DRAW_DEBUGGING) {
-            draw.drawCircleF(ctx, this.pos.x, this.pos.y, this.radius, this.color);
-            draw.drawLine(ctx, { x: 0, y: this.pos.y }, { x: 1, y: this.pos.y }); // horizontal
-            draw.drawLine(ctx, { x: this.pos.x, y: 0 }, { x: this.pos.x, y: 1 }); // vertical
-        }
-    }
+        // draw.drawText(ctx, this.pos.x, this.pos.y, this.radius * 2.4, "🏀", "#fff", "Arial", "center", ETextAnchor.C);
+        // draw.drawSpriteF(ctx, BallImage, this.pos.x, this.pos.y, this.angle, this.radius * 2, 0, false);
+        draw.drawCircleF(ctx, this.pos.x, this.pos.y, this.radius, this.color);
+        
+        if (globals.DRAW_DEBUGGING) {    
+            draw.drawLine(ctx, { x: 0, y: this.pos.y }, { x: 1, y: this.pos.y }, "#fff", 1); // horizontal
+            draw.drawLine(ctx, { x: this.pos.x, y: 0 }, { x: this.pos.x, y: 1 }, "#fff", 1); // vertical
+            
+            draw.drawLine(ctx, this.pos, { x: this.pos.x - 1/10, y: - 5 }, "#f0f", 1); // vertical
+            draw.drawLine(ctx, this.pos, { x: this.pos.x + 1/10, y: - 5 }, "#f0f", 1); // vertical
 
-    updateBallAfter() {
-        updateBallBounds(this, globals.grassHeight);
-        clampBallSpeed(this, BALL_MAX_SPEED);
+            drawArrow(ctx, this.pos, this.pos.add(this.vel), "#00f", 3, 10);
+            draw.drawText(ctx, this.pos.x, this.pos.y, 1/20, `vel: (${this.vel.x.toFixed(5)},${this.vel.y.toFixed(5)})`, "#fff", "Arial", "center", ETextAnchor.C);
+        }
     }
 }
 
@@ -72,7 +75,7 @@ export class Ball extends PhysicsObject{
 
 // Ball an Seitenwänden und auf der Wiesenoberkante abprallen lassen (mit Energieverlust).
 // Läuft im selben normalisierten Modellraum (0..1, posY wächst nach oben) wie die Spieler.
-export function updateBallBounds(ball, grassHeight) {
+export function updateBallInBounds(ball, grassHeight) {
     if (ball.pos.x - ball.radius < 0) {
         ball.pos.x = ball.radius;
         ball.vel.x = Math.abs(ball.vel.x) * BALL_WALL_RESTITUTION;

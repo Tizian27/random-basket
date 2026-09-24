@@ -48,22 +48,31 @@ export function drawCircleF(ctx, posX, posY, radius, color) {
 }
 
 
-export function drawRectF(ctx, posX, posY, width, height, color){
-    posY = 1 - posY - height // Flip Y
+export function drawRect(ctx, pos, size, fillColor = null, strokeColor = null, lineWidth = 1) {
+    let x = pos.x;
+    let y = pos.y;
+    let width = size.x;
+    let height = size.y;
 
-    // apply un-normalising
-    posX *= globals.canvasDimensions.width
-    posY *= globals.canvasDimensions.height
-    width *= globals.canvasDimensions.width
-    height *= globals.canvasDimensions.height
+    // Flip Y
+    y = 1 - y - height;
 
-    ctx.fillStyle = color;
-    ctx.fillRect(
-        posX,
-        posY,
-        width,
-        height
-    );
+    // un-normalise
+    x *= globals.canvasDimensions.width;
+    y *= globals.canvasDimensions.height;
+    width *= globals.canvasDimensions.width;
+    height *= globals.canvasDimensions.height;
+
+    if (fillColor) {
+        ctx.fillStyle = fillColor;
+        ctx.fillRect(x, y, width, height);
+    }
+
+    if (strokeColor) {
+        ctx.strokeStyle = strokeColor;
+        ctx.lineWidth = lineWidth;
+        ctx.strokeRect(x, y, width, height);
+    }
 }
 
 // Zeichnet ein rotiertes Sprite. (x, y) ist der Drehpunkt im normalisierten Modellraum,

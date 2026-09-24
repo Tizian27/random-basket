@@ -6,6 +6,7 @@ import { PlayerSegment } from "../playerSegment.js";
 import { Vec2d } from "../utils/vec2d.js";
 import { applyBalanceImpulse, applyAngularImpulse } from "../physics.js";
 import { PhysicsObject } from "./physicsObjects.js";
+import { clamp } from "../utils/mathFunctions.js";
 
 const bodyImage = new Image();
 bodyImage.src = "./assets/playerBody.png";
@@ -13,8 +14,31 @@ const armImage = new Image();
 armImage.src = "./assets/playerArm.png";
 
 const JUMP_LEAN_IMPULSE = 0.03 // Lean-Impuls beim Absprung, skaliert mit velX (unabhängig von jumpSpeed/gravity)
-const LEAN_JUMP_PUSH = 0.007   // Oberkörper-Neigung schubst beim Springen seitwärts mit
+const LEAN_JUMP_PUSH = 0.01   // Oberkörper-Neigung schubst beim Springen seitwärts mit
 const PLAYER_JUMP_FORCE = 0.02 // unit: px/s
+
+
+
+// --------------------------------
+// Ragdoll-Wobble (Balance + Segment-Federphysik)
+// --------------------------------
+// Keine echte Rigid-Body-Engine: jedes Segment ist ein gedämpfter Feder-Schwinger,
+// der zu einem Ziel-Winkel zurückfedert. "balance" ist ein pro Spieler treibender
+// Wert, der diesen Ziel-Winkel des Torsos vorgibt und ohne aktive Steuerung leicht
+// zufällig driftet -> komödiantisches Dauerwackeln statt stabilem Stehen.
+const BALANCE_NOISE = 0.015            // zufälliges "Zittern" pro Frame (nur solange IDLE_SETTLE_FRAMES nicht überschritten ist)
+const BALANCE_CORRECTION_ACTIVE = 0.12 // Rückstellkraft bei aktiver Steuerung
+const BALANCE_CORRECTION_IDLE = 0.02   // Rückstellkraft im Leerlauf (schwach -> Drift, solange noch "kürzlich" gesprungen wurde)
+const BALANCE_DAMPING = 0.92
+const MAX_BALANCE = 1.1                // rad, harte Grenze bevor die Figur "umkippt"
+const MAX_BALANCE_VEL = 0.3
+const IDLE_SETTLE_FRAMES = 180         // ~3s bei 60fps: so lange nach dem letzten Sprung wird noch gewackelt/gedriftet, danach komplett still
+
+const SEGMENT_SPRING = 0.008           // noch weichere Feder -> spürbar längere Schwingungsdauer (Periode ~ 1/sqrt(SEGMENT_SPRING))
+const SEGMENT_DAMPING = 0.985          // an die längere Periode angepasst, damit weiterhin mehrere Schwingungen sichtbar ausklingen statt zu schnell zu stoppen
+const MAX_ANGULAR_VEL = 0.05         // weiter gedeckelt: pro Frame noch weniger Drehung möglich -> insgesamt sanftere, langsamere Bewegung
+
+
 
 // Spieler-Maße: normalisiert (0..1). playerWidth/playerHeight sind die Kollisions-Boundingbox
 // (für Kollisionen/Bodenkontakt); bodyDisplayHeight ist die sichtbare Sprite-Größe (bewusst
@@ -63,15 +87,19 @@ export class Player extends PhysicsObject {
     update() {
         super.update();
 
-        // Spielfeldbegrenzung seitlich (Boden wird unten pro Objekttyp behandelt)
+        // Spielfeldbegrenzung seitlich
         this.pos.x = Math.max(0, Math.min(1 - this.width, this.pos.x));
+
+        
+        // Ragdoll-Wobble pro Spieler (Balance-Drift + Segment-Federphysik)
+        updateRagdoll(this, this.jumpButton);
     }
 
     handleInput(keys) {
         if (keys[this.jumpButton] && this.onGround) {
             const inertiaLean =
                 -this.vel.x * JUMP_LEAN_IMPULSE +
-                (Math.random() - 0.5) * 0.1;
+                (Math.random() - 0.5) * 0.01;
 
             this.vel.y = PLAYER_JUMP_FORCE; // positiv = nach oben (posY wächst nach oben)
             this.vel.x += this.balance * LEAN_JUMP_PUSH; // Neigung des Oberkörpers schubst den Sprung seitwärts
@@ -83,6 +111,8 @@ export class Player extends PhysicsObject {
     }
 
     render(ctx) {
+        // Spieler: Body-Sprite (Kopf+Torso+Beine) kippt als ein starres Ganzes von den Füßen aus,
+        // der Arm ist ein zweites Sprite, das an der Schulter mitschwingt.
         const pose = getBodyPose(this);
         draw.drawSpriteF(ctx, bodyImage, pose.feetX, pose.feetY, pose.lean, bodyDisplayHeight, 1, this.facingFlip)
         draw.drawSpriteF(ctx, armImage, pose.shoulderX, pose.shoulderY, pose.lean, armDisplayHeight, 0, this.facingFlip)
@@ -90,6 +120,7 @@ export class Player extends PhysicsObject {
         if (globals.DRAW_DEBUGGING) {
             draw.drawCircleF(ctx, this.pos.x, this.pos.y, 1/50, "#f0fa");
             draw.drawCircleF(ctx, pose.feetX, pose.feetY, 1/50, "#0f0a");
+            draw.drawRect(ctx, this.pos, { x: this.width, y: this.height }, null, "#0a0a", 3);
         }
     }
 }
@@ -116,4 +147,53 @@ function getBodyPose(player) {
     const shoulderY = feetY + upY * bodyDisplayHeight * armShoulderFrac + rightY * armSideOffset;
 
     return { feetX, feetY, lean, shoulderX, shoulderY };
+}
+
+// Balance ist der treibende Wert für den Ziel-Winkel des Torsos. Ohne aktive
+// Steuerung ("activeInput") ist die Rückstellkraft schwach -> die Figur driftet spürbar statt
+// kerzengerade stehenzubleiben - aber nur eine Weile nach dem letzten Sprung (IDLE_SETTLE_FRAMES),
+// danach hört das Rauschen ganz auf und Feder+Dämpfung bringen die Figur komplett zur Ruhe.
+
+function updateBalance(player, activeInput) {
+    player.framesSinceJump++;
+
+    if (player.framesSinceJump < IDLE_SETTLE_FRAMES) {
+        player.balanceVel += (Math.random() - 0.5) * BALANCE_NOISE;
+    }
+
+    const correction = activeInput ? BALANCE_CORRECTION_ACTIVE : BALANCE_CORRECTION_IDLE;
+    player.balanceVel += -player.balance * correction;
+
+    player.balanceVel *= BALANCE_DAMPING;
+    player.balanceVel = clamp(player.balanceVel, -MAX_BALANCE_VEL, MAX_BALANCE_VEL);
+
+    player.balance += player.balanceVel;
+    player.balance = clamp(player.balance, -MAX_BALANCE, MAX_BALANCE);
+}
+
+// Gedämpfter Feder-Schwinger: das Segment dreht sich Richtung restAngle,
+// bestehende angularVel (z.B. aus Impulsen) klingt dabei aus statt abrupt
+// zu stoppen -> das typische "Wobble"-Überschwingen.
+function updateSegmentPhysics(segment, restAngle) {
+    const angleError = segment.angle - restAngle;
+    segment.angularVel += -angleError * SEGMENT_SPRING;
+    segment.angularVel *= SEGMENT_DAMPING;
+    segment.angularVel = clamp(segment.angularVel, -MAX_ANGULAR_VEL, MAX_ANGULAR_VEL);
+
+    segment.angle += segment.angularVel;
+}
+
+function updateRagdoll(player, activeInput) {
+    // In der Luft kein Pendeln: Winkel/Balance bleiben eingefroren, wie sie beim Absprung waren,
+    // und laufen erst beim nächsten Bodenkontakt (Landungs-Impuls) wieder weiter.
+    if (!player.onGround) {
+        return;
+    }
+
+    updateBalance(player, activeInput);
+
+    // Torso zeigt in Ruhe nach oben (Math.PI) und kippt um "balance" aus der Hüfte aus.
+    // Beine und Arm haben keine eigene Federphysik mehr - sie werden in syncRagdoll starr
+    // aus der aktuellen Torso-Neigung abgeleitet (kein unabhängiges Wackeln).
+    updateSegmentPhysics(player.torso, Math.PI + player.balance);
 }

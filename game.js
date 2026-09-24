@@ -1,7 +1,7 @@
 import { globals, ETextAnchor } from "./scripts/globals.js";
 import * as draw from "./scripts/drawFunctions.js";
 
-import { resolveCollisions, updateBall, updateRagdoll, applyBalanceImpulse, applyAngularImpulse } from "./scripts/physics.js";
+import { resolveCollisions, updateRagdoll, applyBalanceImpulse, applyAngularImpulse } from "./scripts/physics.js";
 import { randomSign, randomBetween } from "./scripts/utils/mathFunctions.js";
 import { Player } from "./scripts/objects/player.js";
 import { Ball } from "./scripts/objects/ball.js";
@@ -48,35 +48,45 @@ const keys = {};
 globals.canvasDimensions.width = canvas.width;
 globals.canvasDimensions.height = canvas.height;
 
-const grassHeight = 1 / 4
-
 // --------------------------------
 // Spieler
 // --------------------------------
 
-const player1 = new Player({
-    pos: new Vec2d(3/4, grassHeight - 1/8),
+const player1a = new Player({
+    pos: new Vec2d(0,0),
+    facingFlip: false,
+    color: "#4b3fd3",
+    jumpButton: "w",
+});
+const player1b = new Player({
+    pos: new Vec2d(0,0),
     facingFlip: false,
     color: "#4b3fd3",
     jumpButton: "w",
 });
 
-const player2 = new Player({
-    pos: new Vec2d(1/4, grassHeight),
+const player2a = new Player({
+    pos: new Vec2d(0,0),
+    facingFlip: true,
+    color: "#dd5f5f",
+    jumpButton: "arrowup",
+});
+const player2b = new Player({
+    pos: new Vec2d(0,0),
     facingFlip: true,
     color: "#dd5f5f",
     jumpButton: "arrowup",
 });
 
-let players = [player1, player2];
+let players = [player1a, player1b, player2a, player2b];
 
 const basketBall = new Ball({
-    pos: new Vec2d(1/2, 1/2),
+    pos: new Vec2d(0,0),
     radius: 1/25,
     color: "#ff9d13"
 });
 
-let physicsObjects = [player1, player2, basketBall]
+let physicsObjects = [...players, basketBall];
 
 // --------------------------------
 // Eingabe
@@ -100,11 +110,17 @@ function startGame() {
     score = 0;
     lives = 3;
 
-    player1.pos.set(randomBetween(1/8, 3/8), grassHeight);
-    player1.vel.set(0, 0);
+    player1a.pos.set(randomBetween(1/8, 2/8), globals.grassHeight);
+    player1a.vel.set(0, 0);
 
-    player2.pos.set(randomBetween(5/8, 7/8), grassHeight);
-    player2.vel.set(0, 0);
+    player1b.pos.set(randomBetween(2/8, 3/8), globals.grassHeight);
+    player1b.vel.set(0, 0);
+
+    player2a.pos.set(randomBetween(5/8, 6/8), globals.grassHeight);
+    player2a.vel.set(0, 0);
+
+    player2b.pos.set(randomBetween(6/8, 7/8), globals.grassHeight);
+    player2b.vel.set(0, 0);
 
     players.forEach(p => {
         p.onGround = true;
@@ -117,7 +133,6 @@ function startGame() {
     });
 
     basketBall.pos.set(1/2, 1/2);
-    basketBall.vel.set(0, 0);
 
     gameRunning = true;
 
@@ -157,7 +172,7 @@ function update() {
     players.forEach(p => {
         const wasAirborne = !p.onGround;
 
-        if (p.pos.y <= grassHeight) {
+        if (p.pos.y <= globals.grassHeight) {
             if (wasAirborne) {
                 // Aufprall-Wobble: je härter die Landung, desto stärker der Ausschlag.
                 // Direkter Dreh-Impuls auf den Torso sorgt für ein aktives Pendeln, das über
@@ -166,7 +181,7 @@ function update() {
                 applyAngularImpulse(p.torso, randomSign() * p.vel.y * LAND_SWING_IMPULSE);
                 applyBalanceImpulse(p, randomSign() * p.vel.y * LAND_IMPACT_FACTOR);
             }
-            p.pos.y = grassHeight;
+            p.pos.y = globals.grassHeight;
             p.vel.y = 0;
             p.onGround = true;
             p.vel.x *= GROUND_FRICTION; // bremst den Lean-Schub ab, statt endlos weiterzugleiten
@@ -176,12 +191,13 @@ function update() {
     });
 
     // Kollisionen: Spieler<->Spieler und Spieler<->Ball lösen Wackel-Impulse aus
-    resolveCollisions(player1, player2, basketBall);
-    updateBall(basketBall, grassHeight);
+    resolveCollisions(players, [basketBall]);
+    basketBall.updateBallAfter();
 
     // Ragdoll-Wobble pro Spieler (Balance-Drift + Segment-Federphysik)
-    updateRagdoll(player1, player1.jumpButton);
-    updateRagdoll(player2, player2.jumpButton);
+    players.forEach(player => {
+        updateRagdoll(player, player.jumpButton);
+    });
 }
 
 // --------------------------------
@@ -195,7 +211,7 @@ function drawFrame(ctx) {
     
     // Hintergrund
     draw.drawRectF(ctx, 0, 0, 1, 1, "#6bbfd9");
-    draw.drawRectF(ctx, 0, 0, 1, grassHeight, "#51c468");
+    draw.drawRectF(ctx, 0, 0, 1, globals.grassHeight, "#51c468");
 
     // Spieler: Body-Sprite (Kopf+Torso+Beine) kippt als ein starres Ganzes von den Füßen aus,
     // der Arm ist ein zweites Sprite, das an der Schulter mitschwingt.

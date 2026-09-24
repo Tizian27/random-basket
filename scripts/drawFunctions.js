@@ -1,8 +1,31 @@
 // drawFunctions.js
 import { globals } from "./globals.js";
 import { ETextAnchor } from "./globals.js";
+import { Vec2d } from "./utils/vec2d.js";
 
 
+
+export function drawLine(ctx, pos1, pos2, color = "#ffffff", thickness = 1) {
+
+    // Flip Y
+    pos1 = new Vec2d(pos1.x, 1 - pos1.y);
+    pos2 = new Vec2d(pos2.x, 1 - pos2.y);
+
+    // un-normalise
+    const x1 = pos1.x * globals.canvasDimensions.width;
+    const y1 = pos1.y * globals.canvasDimensions.height;
+
+    const x2 = pos2.x * globals.canvasDimensions.width;
+    const y2 = pos2.y * globals.canvasDimensions.height;
+
+    ctx.strokeStyle = color;
+    ctx.lineWidth = thickness;
+
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+}
 
 export function drawCircleF(ctx, posX, posY, radius, color) {
     posY = 1 - posY // Flip Y

@@ -151,50 +151,19 @@ function resolveBallCollision(player, ball) {
     applyAngularImpulse(player.torso, -nx * BALL_BUMP_IMPULSE);
 }
 
-export function resolveCollisions(player1, player2, basketBall) {   
-    resolvePlayerCollision(player1, player2);
-    resolveBallCollision(player1, basketBall);
-    resolveBallCollision(player2, basketBall);
-}
+export function resolveCollisions(players, balls) {
 
-
-
-// --------------------------------
-// BALL
-// --------------------------------
-
-// Ball an Seitenwänden und auf der Wiesenoberkante abprallen lassen (mit Energieverlust).
-// Läuft im selben normalisierten Modellraum (0..1, posY wächst nach oben) wie die Spieler.
-export function updateBallBounds(ball, grassHeight) {
-    if (ball.pos.x - ball.radius < 0) {
-        ball.pos.x = ball.radius;
-        ball.vel.x = Math.abs(ball.vel.x) * BALL_WALL_RESTITUTION;
-    } else if (ball.pos.x + ball.radius > 1) {
-        ball.pos.x = 1 - ball.radius;
-        ball.vel.x = -Math.abs(ball.vel.x) * BALL_WALL_RESTITUTION;
+    // Player ↔ Player
+    for (let i = 0; i < players.length; i++) {
+        for (let j = i + 1; j < players.length; j++) {
+            resolvePlayerCollision(players[i], players[j]);
+        }
     }
 
-    const minBallY = grassHeight + ball.radius;
-    if (ball.pos.y < minBallY) {
-        ball.pos.y = minBallY;
-        ball.vel.y = Math.abs(ball.vel.y) * BALL_GROUND_RESTITUTION;
-        ball.vel.x *= BALL_GROUND_FRICTION; // bremst seitlich ab, statt endlos weiterzurollen
+    // Player ↔ Ball
+    for (let i = 0; i < players.length; i++) {
+        for (let j = 0; j < balls.length; j++) {
+            resolveBallCollision(players[i], balls[j]);
+        }
     }
-}
-
-// Harte Obergrenze für die Ballgeschwindigkeit. Anders als bei Boden-/Wandprall (Restitution < 1,
-// verliert automatisch Energie) setzt eine Spielerkollision die Geschwindigkeit einfach neu -
-// ohne diesen Clamp gäbe es keinen Deckel, falls mehrere Treffer kurz hintereinander passieren.
-function clampBallSpeed(ball, ball_max_speed) {
-    const speed = Math.hypot(ball.vel.x, ball.vel.y);
-    if (speed > ball_max_speed) {
-        const scale = ball_max_speed / speed;
-        ball.vel.x *= scale;
-        ball.vel.y *= scale;
-    }
-}
-
-export function updateBall(ball, grassHeight) {
-    updateBallBounds(ball, grassHeight);
-    clampBallSpeed(ball, BALL_MAX_SPEED);
 }

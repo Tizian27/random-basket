@@ -3,6 +3,7 @@
  * @property {{ width: number, height: number }} canvasDimensions
  * @property {number} gravity
  * @property {number} wind
+ * @property {number} grassHeight
  * @property {boolean} DRAW_DEBUGGING
 */
 
@@ -14,6 +15,7 @@ export const globals = {
     },
     gravity: -0.0010, // unit: px/s/s,
     wind: 0,
+    grassHeight: 1 / 4,
     DRAW_DEBUGGING: true,
 };
 

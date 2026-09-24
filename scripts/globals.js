@@ -3,7 +3,8 @@
  * @property {{ width: number, height: number }} canvasDimensions
  * @property {number} gravity
  * @property {number} wind
- */
+ * @property {boolean} DRAW_DEBUGGING
+*/
 
 /** @type {GlobalsType} */
 export const globals = {
@@ -13,6 +14,7 @@ export const globals = {
     },
     gravity: -0.0010, // unit: px/s/s,
     wind: 0,
+    DRAW_DEBUGGING: true,
 };
 
 // wg Gravity:

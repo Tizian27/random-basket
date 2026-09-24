@@ -1,13 +1,11 @@
-import * as draw from "./scripts/drawFunctions.js";
 import { globals, ETextAnchor } from "./scripts/globals.js";
+import * as draw from "./scripts/drawFunctions.js";
 
 import { resolveCollisions, updateBall, updateRagdoll, applyBalanceImpulse, applyAngularImpulse } from "./scripts/physics.js";
 import { randomSign, randomBetween } from "./scripts/utils/mathFunctions.js";
 import { Player } from "./scripts/objects/player.js";
 import { Ball } from "./scripts/objects/ball.js";
 import { Vec2d } from "./scripts/utils/vec2d.js";
-
-const DRAW_DEBUGGING = true
 
 
 
@@ -38,18 +36,6 @@ const livesElement = document.getElementById("lives");
 const startButton = document.getElementById("start-button");
 const debugTextElement = document.getElementById("debuggingText");
 
-// --------------------------------
-// Sprites
-// --------------------------------
-// Beide Spieler nutzen aktuell dieselben Sprites (nur ein Farb-Set geliefert) - sie sehen
-// dadurch optisch identisch aus, nur an unterschiedlicher Position.
-const bodyImage = new Image();
-bodyImage.src = "./assets/playerBody.png";
-const armImage = new Image();
-armImage.src = "./assets/playerArm.png";
-const BallImage = new Image();
-BallImage.src = "./assets/Basketball.png";
-
 // Variables
 let gameRunning = false;
 let score = 0;
@@ -67,20 +53,6 @@ const grassHeight = 1 / 4
 // --------------------------------
 // Spieler
 // --------------------------------
-
-
-
-// Spieler-Maße: normalisiert (0..1). playerWidth/playerHeight sind die Kollisions-Boundingbox
-// (für Kollisionen/Bodenkontakt); bodyDisplayHeight ist die sichtbare Sprite-Größe (bewusst
-// gleich playerHeight, damit Hitbox und Optik zusammenpassen). Kopf, Torso UND Beine stecken
-// jetzt fest im Body-Sprite (assets/playerBody.png) - das kippt beim Wackeln als ein starres
-// Ganzes. Nur der Arm (assets/playerArm.png) ist ein zweites, separat rotiertes Sprite.
-const playerWidth = 1 / 20
-const playerHeight = 1 / 5
-const bodyDisplayHeight = playerHeight
-const armDisplayHeight = bodyDisplayHeight * 0.5   // Arm ca. halb so hoch wie der Körper (Vorlage-Proportion)
-const armShoulderFrac = 0.78                       // Anteil von bodyDisplayHeight, wo die Schulter sitzt
-const armSideOffset = bodyDisplayHeight * -0.1     // seitlicher Versatz des Arms vom Körperzentrum
 
 const player1 = new Player({
     pos: new Vec2d(3/4, grassHeight - 1/8),
@@ -212,35 +184,11 @@ function update() {
     updateRagdoll(player2, player2.jumpButton);
 }
 
-// Füße sind der feste Ankerpunkt (player.pos.y = Unterkante, siehe drawRectF-Konvention) - das
-// Body-Sprite (Kopf+Torso+Beine in einem Bild) dreht sich starr darum. "lean" ist die Abweichung
-// von der Senkrechten (torso.angle - Math.PI), 0 = aufrecht. Für den Arm wird zusätzlich der
-// Schulterpunkt berechnet: ein Stück "lean"-Richtung nach oben + seitlich versetzt vom Körper.
-function getBodyPose(player) {
-    const feetX = player.pos.x + player.width / 2;
-    const feetY = player.pos.y;
-    const lean = player.torso.angle - Math.PI;
-
-    // "Nach oben"-Richtung des Körpers bei aktueller Neigung (0 = senkrecht)
-    const upX = Math.sin(lean);
-    const upY = Math.cos(lean);
-    // Bei gespiegelten Spielern (facingFlip) muss der Arm auf die andere Seite wandern,
-    // sonst löst er sich optisch vom gespiegelten Körper.
-    const side = player.facingFlip ? -1 : 1;
-    const rightX = upY * side;
-    const rightY = -upX * side;
-
-    const shoulderX = feetX + upX * bodyDisplayHeight * armShoulderFrac + rightX * armSideOffset;
-    const shoulderY = feetY + upY * bodyDisplayHeight * armShoulderFrac + rightY * armSideOffset;
-
-    return { feetX, feetY, lean, shoulderX, shoulderY };
-}
-
 // --------------------------------
 // Zeichnen
 // --------------------------------
 
-function drawFrame() {
+function drawFrame(ctx) {
     // Global Canvas Update
     globals.canvasDimensions.width = canvas.width;
     globals.canvasDimensions.height = canvas.height;
@@ -252,18 +200,11 @@ function drawFrame() {
     // Spieler: Body-Sprite (Kopf+Torso+Beine) kippt als ein starres Ganzes von den Füßen aus,
     // der Arm ist ein zweites Sprite, das an der Schulter mitschwingt.
     players.forEach(player => {
-        const pose = getBodyPose(player);
-
-        draw.drawSpriteF(ctx, bodyImage, pose.feetX, pose.feetY, pose.lean, bodyDisplayHeight, 1, player.facingFlip)
-        draw.drawSpriteF(ctx, armImage, pose.shoulderX, pose.shoulderY, pose.lean, armDisplayHeight, 0, player.facingFlip)
+        player.render(ctx);
     })
 
     // Basketball
-    draw.drawText(ctx, basketBall.pos.x, basketBall.pos.y, basketBall.radius * 2.4, "🏀", "#fff", "Arial", "center", ETextAnchor.C);
-    draw.drawSpriteF(ctx, BallImage, basketBall.pos.x, basketBall.pos.y, basketBall.angle, basketBall.radius * 2, 0, false);
-    if (DRAW_DEBUGGING) {
-        draw.drawCircleF(ctx, basketBall.pos.x, basketBall.pos.y, basketBall.radius, basketBall.color);
-    }
+    basketBall.render(ctx);
 
     // Start-Hinweis
     if (!gameRunning) {
@@ -277,7 +218,7 @@ function drawFrame() {
 
 function gameLoop() {
     update();
-    drawFrame();
+    drawFrame(ctx);
 
     requestAnimationFrame(gameLoop);
 }

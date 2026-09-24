@@ -1,7 +1,7 @@
 // physicsObjects.js
 
-import { Vec2d } from "../utils/vec2d.js";
 import { globals } from "../globals.js";
+import { Vec2d } from "../utils/vec2d.js";
 
 export class PhysicsObject {
     constructor({

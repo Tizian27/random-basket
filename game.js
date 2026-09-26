@@ -1,6 +1,24 @@
+import { globals, ETextAnchor } from "./scripts/globals.js";
 import * as draw from "./scripts/drawFunctions.js";
-import Globals from "./scripts/globals.js";
 
+import { resolveCollisions, applyBalanceImpulse, applyAngularImpulse } from "./scripts/physics.js";
+import { randomSign, randomBetween } from "./scripts/utils/mathFunctions.js";
+import { Player } from "./scripts/objects/player.js";
+import { Ball } from "./scripts/objects/ball.js";
+import { Vec2d } from "./scripts/utils/vec2d.js";
+
+
+
+// LAND_IMPACT_FACTOR/LAND_SWING_IMPULSE skalieren mit der Aufprall-velY, die durch die Mond-
+// Gravitation jetzt ~50x kleiner ist als vorher (jumpSpeed sank von 1/15 auf 0.00135) - um 1:1
+// dieselbe Wackel-/Pendel-Stärke wie vorher zu behalten, sind beide Werte um denselben Faktor
+// hochskaliert.
+const LAND_IMPACT_FACTOR = 1.0         // kleiner Lean-Nudge (balance) beim Landen, skaliert mit Aufprall-velY
+const LAND_SWING_IMPULSE = 600         // Dreh-Impuls auf den Torso beim Landen; sättigt zuverlässig am MAX_ANGULAR_VEL, die weiche Feder sorgt für den großen, langsamen Ausschlag
+// War seit der Mond-Gravitation nicht mehr neu skaliert (jumpSpeed sank von 1/15 auf 0.0014).
+// Bei vollem Lean (MAX_BALANCE=1.1) jetzt ca. 6x jumpSpeed seitlich -> der Sprung geht klar
+// überwiegend in die Richtung, in die gerade gependelt wird, statt nur leicht beeinflusst zu sein.
+const GROUND_FRICTION = 0.85           // bremst seitliche Bewegung am Boden ab (sonst gleitet die Figur endlos)
 
 
 // --------------------------------
@@ -17,67 +35,74 @@ const scoreElement = document.getElementById("score");
 const livesElement = document.getElementById("lives");
 const startButton = document.getElementById("start-button");
 const debugTextElement = document.getElementById("debuggingText");
-let debugText = ""
 
 // Variables
 let gameRunning = false;
 let score = 0;
 let lives = 3;
+let debugText = ""
 
 const keys = {};
-const wind = 0
-const gravity = -1/150 // unit: px/s/s
-const jumpSpeed = 1/15 // unit: px/s
 
 // ini
-Globals.canvasDimensions.width = canvas.width;
-Globals.canvasDimensions.height = canvas.height;
+globals.canvasDimensions.width = canvas.width;
+globals.canvasDimensions.height = canvas.height;
 
 // --------------------------------
 // Spieler
 // --------------------------------
 
-const player1 = {
-    posX: 3/4,
-    posY: 1/3,
-    velY: 0,
-    velX: 0,
-    width: 1/8,
-    height: 1/8,
-    speed: 1/40,
-    color: "#4b3fd3"
-};
+const player1a = new Player({
+    pos: new Vec2d(0,0),
+    facingFlip: false,
+    color: "#4b3fd3",
+    jumpButton: "w",
+});
+const player1b = new Player({
+    pos: new Vec2d(0,0),
+    facingFlip: false,
+    color: "#4b3fd3",
+    jumpButton: "w",
+});
 
-const player2 = {
-    posX: 1/4,
-    posY: 1/3,
-    velY: 0,
-    velX: 0,
-    width: 1/8,
-    height: 1/8,
-    speed: 1/40,
-    color: "#dd5f5f"
-};
+const player2a = new Player({
+    pos: new Vec2d(0,0),
+    facingFlip: true,
+    color: "#dd5f5f",
+    jumpButton: "arrowup",
+});
+const player2b = new Player({
+    pos: new Vec2d(0,0),
+    facingFlip: true,
+    color: "#dd5f5f",
+    jumpButton: "arrowup",
+});
 
-let player = [player1, player2]
+let players = [player1a, player1b, player2a, player2b];
 
-const basketBall = {
-    posX: 1/2,
-    posY: 1/2,
-    velY: 0,
-    velX: 0,
-    radius: 1/16,
-    color: "#ff9d13",
+const basketBall = new Ball({
+    pos: new Vec2d(0,0),
+    radius: 1/50,
+    color: "#ff9d13"
+});
 
-    get width() {
-        return this.radius * 2;
-    },
-    get height() {
-        return this.radius * 2;
-    }
-}
+const basketBall2 = new Ball({
+    pos: new Vec2d(0,0),
+    radius: 1/50,
+    color: "#a1ff13"
+});
 
-let physicsObjects = [player1, player2, basketBall]
+let balls = [basketBall, basketBall2];
+
+let physicsObjects = [...players, ...balls];
+
+
+
+// JUST FOR FUN
+spawnExtraTill(players, balls, 4, 2, "w", "arrowup"); // LOL, chaos :)
+// globals.DRAW_DEBUGGING = false;
+
+
 
 // --------------------------------
 // Eingabe
@@ -101,14 +126,34 @@ function startGame() {
     score = 0;
     lives = 3;
 
-    player1.posX = 1/4;
-    player1.posY = 1/3;
-    player2.posX = 3/4;
-    player2.posY = 1/3;
+    player1a.pos.set(randomBetween(1/8, 2/8), globals.grassHeight);
+    player1a.vel.set(0, 0);
+
+    player1b.pos.set(randomBetween(2/8, 3/8), globals.grassHeight);
+    player1b.vel.set(0, 0);
+
+    player2a.pos.set(randomBetween(5/8, 6/8), globals.grassHeight);
+    player2a.vel.set(0, 0);
+
+    player2b.pos.set(randomBetween(6/8, 7/8), globals.grassHeight);
+    player2b.vel.set(0, 0);
+
+    players.forEach(p => {
+        p.onGround = true;
+        p.balance = 0;
+        p.balanceVel = 0;
+        p.framesSinceJump = 0;
+
+        p.torso.angle = Math.PI;
+        p.torso.angularVel = 0;
+    });
+
+    basketBall.pos.set(1/2, 1/2);
+    basketBall2.pos.set(3/4, 3/4);
 
     gameRunning = true;
 
-    updateUI();
+    // updateUI();
 }
 
 // --------------------------------
@@ -123,110 +168,80 @@ function update() {
     }
 
     // CONTROLS
-    // player1
-    if (keys["w"]) {
-        player1.velY = jumpSpeed;
-    }
-
-    if (keys["s"]) {
-        player1.posY += player1.speed;
-    }
-
-    if (keys["a"]) {
-        player1.posX -= player1.speed;
-    }
-
-    if (keys["d"]) {
-        player1.posX += player1.speed;
-    }
-
-    // player2
-    if (keys["arrowup"]){
-        player2.velY = jumpSpeed;
-    }
-
-    if (keys["arrowdown"]) {
-        player2.posY += player2.speed;
-    }
-
-    if(keys["arrowleft"]){
-        player2.posX -= player2.speed;
-    }
-
-    if(keys["arrowright"]){
-        player2.posX += player2.speed;
-    }
+    players.forEach(player => {
+        player.handleInput(keys)
+    });
 
     // PHYSICS
     physicsObjects.forEach((object, i) => {
-
-        // acceleration
-        // not yet - later with physics
-
-        // velocity
-        object.velY = Math.max(object.velY += gravity, -1/20)
-
-        object.velX += wind; //maybe wind?
-        // position
-        object.posY += object.velY;
-        object.posX += object.velX;
-
-        
-        // Spielfeldbegrenzung
-        object.posX = Math.max(0, Math.min(1 - object.width, object.posX));
-        object.posY = Math.max(0, Math.min(1 - object.height, object.posY));
+        object.update();
 
         //debugging
-        if (player.includes(object)){
-            debugText += `\nplayer ${i} - pos: (${object.posX.toFixed(4)}, ${object.posY.toFixed(4)}) | vel: (${object.velX.toFixed(4)}, ${object.velY.toFixed(4)})`;
-            // console.log(`p${i} pos: (${object.posX.toFixed(4)}, ${object.posY.toFixed(4)}) | vel: (${object.velX.toFixed(4)}, ${object.velY.toFixed(4)})`);
+        if (players.includes(object)){
+            debugText += `\nplayer ${i} - pos: (${object.pos.x.toFixed(4)}, ${object.pos.y.toFixed(4)}) | vel: (${object.vel.x.toFixed(4)}, ${object.vel.y.toFixed(4)})`;
         }
-        if (object == basketBall){
-            // console.log(`ball: velX: ${object.velX.toFixed(3)}, velY: ${object.velY.toFixed(3)}`);
-
+        if (balls.includes(object)){
+            debugText += `\nBall ${i} - pos: (${object.pos.x.toFixed(4)}, ${object.pos.y.toFixed(4)}) | vel: (${object.vel.x.toFixed(4)}, ${object.vel.y.toFixed(4)})`;
         }
-
-        debugTextElement.textContent = debugText
     });
+
+
+    // DebugText unter dem spiel canvas
+    debugTextElement.textContent = debugText;
+
+    // Boden: Spieler stehen auf der Wiesenoberkante (nicht am Canvas-Rand)
+    players.forEach(p => {
+        const wasAirborne = !p.onGround;
+
+        if (p.pos.y <= globals.grassHeight) {
+            if (wasAirborne) {
+                // Aufprall-Wobble: je härter die Landung, desto stärker der Ausschlag.
+                // Direkter Dreh-Impuls auf den Torso sorgt für ein aktives Pendeln, das über
+                // SEGMENT_SPRING/SEGMENT_DAMPING von selbst langsamer wird bis zum Stillstand;
+                // der kleine balance-Nudge sorgt zusätzlich für einen leichten Nachlauf-Lean.
+                applyAngularImpulse(p.torso, randomSign() * p.vel.y * LAND_SWING_IMPULSE);
+                applyBalanceImpulse(p, randomSign() * p.vel.y * LAND_IMPACT_FACTOR);
+            }
+            p.pos.y = globals.grassHeight;
+            p.vel.y = 0;
+            p.onGround = true;
+            p.vel.x *= GROUND_FRICTION; // bremst den Lean-Schub ab, statt endlos weiterzugleiten
+        } else {
+            p.pos.y = Math.min(1 - p.height, p.pos.y);
+        }
+    });
+
+    // Kollisionen: Spieler<->Spieler und Spieler<->Ball lösen Wackel-Impulse aus
+    resolveCollisions(players, balls);
 }
 
 // --------------------------------
 // Zeichnen
 // --------------------------------
 
-function drawFrame() {
+function drawFrame(ctx) {
     // Global Canvas Update
-    Globals.canvasDimensions.width = canvas.width;
-    Globals.canvasDimensions.height = canvas.height;
+    globals.canvasDimensions.width = canvas.width;
+    globals.canvasDimensions.height = canvas.height;
     
     // Hintergrund
-    draw.drawRectF(ctx, 0, 0, 1, 1, "#6bbfd9");
-    
-    const grass_height = 1/4;
-    draw.drawRectF(ctx, 0, 0, 1, grass_height, "#51c468");
+    draw.drawRect(ctx, {x:0,y:0}, {x:1,y:1}, "#6bbfd9");
+    draw.drawRect(ctx, {x:0,y:0}, {x:1,y:globals.grassHeight}, "#51c468");
 
     // Spieler
-    player.forEach(player => {
-        draw.drawRectF(ctx, player.posX, player.posY, player.width, player.height, player.color);
+    players.forEach(player => {
+        player.render(ctx);
     })
 
     // Basketball
-    draw.drawCircleF(ctx, basketBall.posX, basketBall.posY, basketBall.radius, basketBall.color);
-    draw.drawText(ctx, basketBall.posX, basketBall.posY, 1/8, "🏀", "#fff", "Arial", "center")
+    balls.forEach(ball => {
+        ball.render(ctx);
+    })
 
     // Start-Hinweis
     if (!gameRunning) {
-        draw.drawText(ctx, 1/2, 1/2, 1/8, "Drücke „Spiel starten“", "#fff", "Arial", "center");
+        draw.drawText(ctx, 1/2, 1/2, 1/8, "Drücke „Spiel starten“", "#fff", "Arial", "center", ETextAnchor.C);
     }
-}
-
-// --------------------------------
-// UI
-// --------------------------------
-
-function updateUI() {
-    scoreElement.textContent = score;
-    livesElement.textContent = lives;
 }
 
 // --------------------------------
@@ -235,10 +250,57 @@ function updateUI() {
 
 function gameLoop() {
     update();
-    drawFrame();
+    drawFrame(ctx);
 
     requestAnimationFrame(gameLoop);
 }
 
 gameLoop();
 startGame();
+
+
+
+
+
+// JUST FOR FUN
+
+function spawnExtraTill(existingPlayers, existingBalls, playersCount = 0, ballsCount = 0, control1 = "w", control2 = "arrowup") {
+
+    const remainingPlayers = playersCount - existingPlayers.length;
+    const remainingBalls = ballsCount - existingBalls.length;
+    const half = Math.floor(remainingPlayers / 2);
+
+    // first half players
+    for (let i = 0; i < half; i++) {
+        players.push(new Player({
+            pos: new Vec2d(Math.random(), globals.grassHeight),
+            facingFlip: false,
+            color: "#4b3fd3",
+            jumpButton: control1
+        }));
+    }
+
+    // second half players
+    for (let i = half; i < remainingPlayers; i++) {
+        players.push(new Player({
+            pos: new Vec2d(Math.random(), globals.grassHeight),
+            facingFlip: true,
+            color: "#dd5f5f",
+            jumpButton: control2
+        }));
+    }
+
+    // balls
+    for (let i = 0; i < remainingBalls; i++) {
+        const randomColor = `hsl(${Math.random() * 360}, 80%, 50%)`;
+
+        balls.push(new Ball({
+            pos: new Vec2d(Math.random(), Math.random()*0.5 + 0.5),
+            radius: 1 / 20,
+            color: randomColor
+        }));
+    }
+
+    // update physics list
+    physicsObjects = [...players, ...balls];
+}

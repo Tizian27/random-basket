@@ -5,45 +5,21 @@ import { Vec2d } from "../utils/vec2d.js";
 import * as draw from "../rendering/drawFunctions.js";
 import * as shape from "../rendering/drawShapes.js";
 import { formatNumber, logColor } from "../utils/generalUtilities.js";
-import { GameObject } from "./gameObject.js";
 
-export class PhysicsObject extends GameObject {
+export class GameObject {
+    static idCounter = 0;
 
     constructor({
         pos = new Vec2d(0, 0),
         angle = 0,
     }) {
-        super({ pos: pos, angle: angle });
-
-        this.vel = new Vec2d(0, 0);
-        this.acc = new Vec2d(0, 0);
-
-        this.angleVel = 0;
-        this.angleAcc = 0;
+        this.objectId = GameObject.idCounter++;
+        this.pos = pos;
+        this.angle = angle;
     }
 
     update() {
-        // acceleration additions
-        this.acc.x += globals.wind;
-        this.acc.y += globals.gravity;
-        
-        // velocity
-        this.vel.addMut(this.acc);
-        
-        // position
-        this.pos.addMut(this.vel);
-        
-        //rotation
-        this.angleVel += this.angleAcc;
-        this.angle += this.angleVel;
-
-        // nur Object 0 soll loggen
-        if (this.objectId === 0 ) {
-            logColor(
-                `Object "${this.objectId}": angle=${formatNumber(this.angle)}, angleVel=${formatNumber(this.angleVel)}, angleAcc=${formatNumber(this.angleAcc)}`,
-                { color: "#f0f" }
-            );
-        }
+        // empty for now
     }
 
     render(ctx) {
@@ -59,5 +35,43 @@ export class PhysicsObject extends GameObject {
         shape.drawVector(ctx, this.pos, this.acc, "#f0f", 0.01, 5); // acceleration vector
         draw.drawText(ctx, this.pos.sub({ x: 1/10, y: 0}), 1/40, `vel: (${this.vel.x.toFixed(3)},${this.vel.y.toFixed(3)})`, "#fff", "Arial", "center", ETextAnchor.C);
         draw.drawText(ctx, this.pos.sub({ x: 1/10, y: -1/40}), 1/40, `acc: (${this.acc.x.toFixed(3)},${this.acc.y.toFixed(3)})`, "#fff", "Arial", "center", ETextAnchor.C);
+    }
+
+    uvToWorldScale(uv) {
+        return new Vec2d(
+            uv.x * this.width,
+            uv.y * this.height
+        );
+    }
+
+    uvPosToWorld(uv) {
+        // 1. UV → local (relativ zum Pivot des Objects)
+        const local = new Vec2d(
+            (uv.x - this.pivot.x) * this.width,
+            (uv.y - this.pivot.y) * this.height
+        );
+
+        // 2. Rotation
+        const cos = Math.cos(this.angle);
+        const sin = Math.sin(this.angle);
+
+        const rotated = new Vec2d(
+            local.x * cos - local.y * sin,
+            local.x * sin + local.y * cos
+        );
+
+        // 3. → World
+        return this.pos.add(rotated);
+    }
+
+    uvToLocal(uv) {
+        return new Vec2d(
+            (uv.x - this.pivot.x) * this.width,
+            (uv.y - this.pivot.y) * this.height
+        );
+    }
+
+    uvToWorld(uv) {
+        return this.localToWorld(this.uvToLocal(uv));
     }
 }

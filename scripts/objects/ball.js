@@ -1,8 +1,8 @@
 // objects/ball.js
 
 import { globals, ETextAnchor } from "../globals.js";
-import * as draw from "../drawFunctions.js";
-import { drawArrow } from "../drawShapes.js";
+import * as draw from "../rendering/drawFunctions.js";
+import * as shape from "../rendering/drawShapes.js";
 import { Vec2d } from "../utils/vec2d.js";
 import { PhysicsObject } from "./physicsObjects.js";
 
@@ -27,7 +27,7 @@ export class Ball extends PhysicsObject{
         radius = 1 / 25,
         color = "#ff9d13",
     }) {
-        super({ pos });
+        super({ pos: pos, angle: 0 });
 
         this.angle = 0;
 
@@ -46,25 +46,25 @@ export class Ball extends PhysicsObject{
     update() {
         super.update();
         
-        updateBallInBounds(this, globals.grassHeight);
+        updateBallInBounds(this, arena.grassHeight);
         clampBallSpeed(this, BALL_MAX_SPEED);
     }
 
     render(ctx) {
-        // draw.drawText(ctx, this.pos.x, this.pos.y, this.radius * 2.4, "🏀", "#fff", "Arial", "center", ETextAnchor.C);
+        // draw.drawText(ctx, this.pos, this.radius * 2.4, "🏀", "#fff", "Arial", "center", ETextAnchor.C);
         // draw.drawSpriteF(ctx, BallImage, this.pos.x, this.pos.y, this.angle, this.radius * 2, 0, false);
-        draw.drawCircleF(ctx, this.pos.x, this.pos.y, this.radius, this.color);
-        
-        if (globals.DRAW_DEBUGGING) {    
-            draw.drawLine(ctx, { x: 0, y: this.pos.y }, { x: 1, y: this.pos.y }, "#fff", 1); // horizontal
-            draw.drawLine(ctx, { x: this.pos.x, y: 0 }, { x: this.pos.x, y: 1 }, "#fff", 1); // vertical
-            
-            draw.drawLine(ctx, this.pos, { x: this.pos.x - 1/10, y: - 5 }, "#f0f", 1); // vertical
-            draw.drawLine(ctx, this.pos, { x: this.pos.x + 1/10, y: - 5 }, "#f0f", 1); // vertical
+        draw.drawCircleF(ctx, this.pos, this.radius, this.color);
+    }
 
-            drawArrow(ctx, this.pos, this.pos.add(this.vel), "#00f", 3, 10);
-            draw.drawText(ctx, this.pos.x, this.pos.y, 1/20, `vel: (${this.vel.x.toFixed(5)},${this.vel.y.toFixed(5)})`, "#fff", "Arial", "center", ETextAnchor.C);
-        }
+    renderDebugging(ctx) {
+        super.renderDebugging(ctx);
+
+        // ball crosshair to find it when off-screen
+        draw.drawLine(ctx, { x: 0, y: this.pos.y }, { x: 1, y: this.pos.y }, "#fff", 1); // horizontal
+        draw.drawLine(ctx, { x: this.pos.x, y: 0 }, { x: this.pos.x, y: 1 }, "#fff", 1); // vertical
+        
+        draw.drawLine(ctx, this.pos, { x: this.pos.x - 1/10, y: - 5 }, "#f0f", 1); // vertical
+        draw.drawLine(ctx, this.pos, { x: this.pos.x + 1/10, y: - 5 }, "#f0f", 1); // vertical
     }
 }
 

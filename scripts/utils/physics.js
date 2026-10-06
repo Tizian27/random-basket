@@ -1,6 +1,6 @@
 // physics.js
 
-import { Vec2d } from "./utils/vec2d.js"
+import { Vec2d } from "./vec2d.js"
 
 const PLAYER_BUMP_IMPULSE = 0.35       // Basis-Wackel-Impuls bei Spieler-Kollision (Winkel, unabhängig vom Koordinatensystem)
 const BALL_BUMP_IMPULSE = 0.15         // Wackel-Impuls beim Ballkontakt
@@ -11,39 +11,39 @@ const BALL_BOUNCE_LIFT = 0.02          // kleiner Extra-Lift nach oben beim Tref
 // Ragdoll-Physik
 // --------------------------------
 
-export function applyBalanceImpulse(player, amount) {
-    player.balanceVel += amount;
+export function applyBalanceImpulse(object, amount) {
+    object.balanceVel += amount;
 }
 
-export function applyAngularImpulse(segment, amount) {
-    segment.angularVel += amount;
+export function applyAngularImpulse(object, amount) {
+    object.angleAcc += amount;
 }
 
 // Einfache AABB-Trennung + Wackel-Impuls, keine echte Rigid-Body-Auflösung
-export function resolvePlayerCollision(a, b) {
-    const overlapX = Math.min(a.pos.x + a.width, b.pos.x + b.width) - Math.max(a.pos.x, b.pos.x);
-    const overlapY = Math.min(a.pos.y + a.height, b.pos.y + b.height) - Math.max(a.pos.y, b.pos.y);
+export function resolvePlayerCollision(objectA, objectB) {
+    const overlapX = Math.min(objectA.pos.x + objectA.width, objectB.pos.x + objectB.width) - Math.max(objectA.pos.x, objectB.pos.x);
+    const overlapY = Math.min(objectA.pos.y + objectA.height, objectB.pos.y + objectB.height) - Math.max(objectA.pos.y, objectB.pos.y);
 
     if (overlapX <= 0 || overlapY <= 0) {
         return;
     }
 
-    const dir = b.pos.sub(a.pos).normalized();
+    const dir = objectB.pos.sub(objectA.pos).normalized();
     const separation = overlapX / 2;
     const separationVec = new Vec2d(dir.x * separation, 0);
 
-    a.pos.subMut(separationVec.scale(2));
-    b.pos.addMut(separationVec.scale(2));
+    objectA.pos.subMut(separationVec.scale(2));
+    objectB.pos.addMut(separationVec.scale(2));
 
-    const relVel = a.vel.sub(b.vel);
+    const relVel = objectA.vel.sub(objectB.vel);
     const relSpeed = relVel.length();
 
     const impulse = PLAYER_BUMP_IMPULSE + relSpeed * 0.05;
 
-    applyBalanceImpulse(a, -dir.x * impulse);
-    applyBalanceImpulse(b, dir.x * impulse);
-    applyAngularImpulse(a.torso, -dir.x * impulse * 0.5);
-    applyAngularImpulse(b.torso, dir.x * impulse * 0.5);
+    // applyBalanceImpulse(objectA, -dir.x * impulse);
+    // applyBalanceImpulse(objectB, dir.x * impulse);
+    // applyAngularImpulse(objectA, -dir.x * impulse * 0.5);
+    // applyAngularImpulse(objectB, dir.x * impulse * 0.5);
 }
 
 // Kreis-Distanz-Check (Ball) gegen die Bounding-Box-Mitte des Spielers
@@ -76,7 +76,7 @@ function resolveBallCollision(player, ball) {
 
     // leichter Ausweich-Wobble beim Spieler
     applyBalanceImpulse(player, -normal.x * BALL_BUMP_IMPULSE);
-    applyAngularImpulse(player.torso, -normal.x * BALL_BUMP_IMPULSE);
+    applyAngularImpulse(player, -normal.x * BALL_BUMP_IMPULSE);
 }
 
 // resolve collision between a list of players and a list of balls

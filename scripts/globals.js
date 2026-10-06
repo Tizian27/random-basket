@@ -3,8 +3,8 @@
  * @property {{ width: number, height: number }} canvasDimensions
  * @property {number} gravity
  * @property {number} wind
- * @property {number} grassHeight
  * @property {boolean} DRAW_DEBUGGING
+ * @property {{ left: number, right: number }} score
 */
 
 /** @type {GlobalsType} */
@@ -15,8 +15,11 @@ export const globals = {
     },
     gravity: -0.0010, // unit: px/s/s,
     wind: 0,
-    grassHeight: 1 / 4,
     DRAW_DEBUGGING: true,
+    score: {
+        left: 0,
+        right: 0,
+    },
 };
 
 // wg Gravity:

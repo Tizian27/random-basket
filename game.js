@@ -1,5 +1,9 @@
-import * as draw from "./scripts/drawFunctions.js";
-import Globals from "./scripts/globals.js";
+import { globals, ETextAnchor } from "./scripts/globals.js";
+import * as draw from "./scripts/rendering/drawFunctions.js";
+
+import { randomSign, randomBetween } from "./scripts/utils/mathFunctions.js";
+import { Vec2d } from "./scripts/utils/vec2d.js";
+import { Arena } from "./scripts/objects/arena.js";
 
 
 
@@ -17,226 +21,178 @@ const scoreElement = document.getElementById("score");
 const livesElement = document.getElementById("lives");
 const startButton = document.getElementById("start-button");
 const debugTextElement = document.getElementById("debuggingText");
-let debugText = ""
 
-// Variables
-let gameRunning = false;
-let score = 0;
-let lives = 3;
 
-const keys = {};
-const wind = 0
-const gravity = -1/150 // unit: px/s/s
-const jumpSpeed = 1/15 // unit: px/s
-
-// ini
-Globals.canvasDimensions.width = canvas.width;
-Globals.canvasDimensions.height = canvas.height;
-
-// --------------------------------
-// Spieler
-// --------------------------------
-
-const player1 = {
-    posX: 3/4,
-    posY: 1/3,
-    velY: 0,
-    velX: 0,
-    width: 1/8,
-    height: 1/8,
-    speed: 1/40,
-    color: "#4b3fd3"
-};
-
-const player2 = {
-    posX: 1/4,
-    posY: 1/3,
-    velY: 0,
-    velX: 0,
-    width: 1/8,
-    height: 1/8,
-    speed: 1/40,
-    color: "#dd5f5f"
-};
-
-let player = [player1, player2]
-
-const basketBall = {
-    posX: 1/2,
-    posY: 1/2,
-    velY: 0,
-    velX: 0,
-    radius: 1/16,
-    color: "#ff9d13",
-
-    get width() {
-        return this.radius * 2;
-    },
-    get height() {
-        return this.radius * 2;
-    }
-}
-
-let physicsObjects = [player1, player2, basketBall]
 
 // --------------------------------
 // Eingabe
 // --------------------------------
+const used_keys = ["arrowup", "w"]
+const prevent_default_keys = ["arrowup", "arrowdown", "arrowleft", "arrowright", " ", "w", "a", "s", "d"]
 
 document.addEventListener("keydown", (event) => {
-    keys[event.key.toLowerCase()] = true;
+    const key = event.key.toLowerCase();
+    // block default browser keydown-behavior for game keys
+    if (prevent_default_keys.includes(key)) {
+        event.preventDefault();
+    }
+
+    if (used_keys.includes(key)) {
+        keys[key] = true;
+    }
 });
 
 document.addEventListener("keyup", (event) => {
-    keys[event.key.toLowerCase()] = false;
+    const key = event.key.toLowerCase();
+
+    // block default browser keyup-behavior for game keys
+    if (prevent_default_keys.includes(key)) {
+        event.preventDefault();
+    }
+    if (used_keys.includes(key)) {
+        keys[key] = false;
+    }
 });
+
+
+
+// Variables
+let gameRunning = false;
+let debugText = ""
+
+const keys = {};
+
+// ini
+globals.canvasDimensions.width = canvas.width;
+globals.canvasDimensions.height = canvas.height;
+// globals.DRAW_DEBUGGING = false;
+
+
 
 // --------------------------------
 // Spiel starten
 // --------------------------------
 
-startButton.addEventListener("click", startGame);
+const arena = new Arena("arena1");
 
 function startGame() {
-    score = 0;
-    lives = 3;
+    globals.score = {left: 0, right: 0};
 
-    player1.posX = 1/4;
-    player1.posY = 1/3;
-    player2.posX = 3/4;
-    player2.posY = 1/3;
+    arena.addPlayer({
+        pos: new Vec2d(randomBetween(1/8, 2/8), arena.grassHeight),
+        facingFlip: false,
+        color: "#4b3fd3",
+        jumpButton: "w",
+    });
+
+    // arena.addPlayer({
+    //     pos: new Vec2d(randomBetween(2/8, 3/8), arena.grassHeight),
+    //     facingFlip: false,
+    //     color: "#4b3fd3",
+    //     jumpButton: "w",
+    // });
+
+    // arena.addPlayer({
+    //     pos: new Vec2d(randomBetween(5/8, 6/8), arena.grassHeight),
+    //     facingFlip: true,
+    //     color: "#dd5f5f",
+    //     jumpButton: "arrowup",
+    // });
+
+    // arena.addPlayer({
+    //     pos: new Vec2d(randomBetween(6/8, 7/8), arena.grassHeight),
+    //     facingFlip: true,
+    //     color: "#dd5f5f",
+    //     jumpButton: "arrowup",
+    // });
+
+    // arena.addBall({
+    //     pos: new Vec2d(1/2, 1/2),
+    //     radius: 1/50,
+    //     color: "#ff9d13"
+    // });
+
+    // JUST FOR FUN LOL, chaos :)
+    arena.spawnExtraTill({
+        totalPlayersCount: 0, // only gets more if this number is greater than already exisiting ones!
+        totalBallsCount: 0,   // only gets more if this number is greater than already exisiting ones!
+        control1: "w",
+        control2: "arrowup",
+        ballSize: 1 / 40
+    });
 
     gameRunning = true;
 
-    updateUI();
+    // updateUI();
 }
+
+startButton.addEventListener("click", startGame);
 
 // --------------------------------
 // Update
 // --------------------------------
 
-function update() {
+function update(arena, keys) {
     debugText = "";
 
     if (!gameRunning) {
         return;
     }
 
-    // CONTROLS
-    // player1
-    if (keys["w"]) {
-        player1.velY = jumpSpeed;
-    }
+    debugText += arena.update(keys);
 
-    if (keys["s"]) {
-        player1.posY += player1.speed;
-    }
-
-    if (keys["a"]) {
-        player1.posX -= player1.speed;
-    }
-
-    if (keys["d"]) {
-        player1.posX += player1.speed;
-    }
-
-    // player2
-    if (keys["arrowup"]){
-        player2.velY = jumpSpeed;
-    }
-
-    if (keys["arrowdown"]) {
-        player2.posY += player2.speed;
-    }
-
-    if(keys["arrowleft"]){
-        player2.posX -= player2.speed;
-    }
-
-    if(keys["arrowright"]){
-        player2.posX += player2.speed;
-    }
-
-    // PHYSICS
-    physicsObjects.forEach((object, i) => {
-
-        // acceleration
-        // not yet - later with physics
-
-        // velocity
-        object.velY = Math.max(object.velY += gravity, -1/20)
-
-        object.velX += wind; //maybe wind?
-        // position
-        object.posY += object.velY;
-        object.posX += object.velX;
-
-        
-        // Spielfeldbegrenzung
-        object.posX = Math.max(0, Math.min(1 - object.width, object.posX));
-        object.posY = Math.max(0, Math.min(1 - object.height, object.posY));
-
-        //debugging
-        if (player.includes(object)){
-            debugText += `\nplayer ${i} - pos: (${object.posX.toFixed(4)}, ${object.posY.toFixed(4)}) | vel: (${object.velX.toFixed(4)}, ${object.velY.toFixed(4)})`;
-            // console.log(`p${i} pos: (${object.posX.toFixed(4)}, ${object.posY.toFixed(4)}) | vel: (${object.velX.toFixed(4)}, ${object.velY.toFixed(4)})`);
-        }
-        if (object == basketBall){
-            // console.log(`ball: velX: ${object.velX.toFixed(3)}, velY: ${object.velY.toFixed(3)}`);
-
-        }
-
-        debugTextElement.textContent = debugText
-    });
+    // DebugText unter dem spiel canvas
+    debugTextElement.textContent = debugText;
 }
 
 // --------------------------------
 // Zeichnen
 // --------------------------------
 
-function drawFrame() {
+function drawFrame(ctx) {
     // Global Canvas Update
-    Globals.canvasDimensions.width = canvas.width;
-    Globals.canvasDimensions.height = canvas.height;
+    globals.canvasDimensions.width = canvas.width;
+    globals.canvasDimensions.height = canvas.height;
+
+    // Globales World Transform
+    ctx.setTransform(
+        globals.canvasDimensions.width, 0,
+        0, -globals.canvasDimensions.height,
+        0, globals.canvasDimensions.height
+    );
+
+    ctx.clearRect(0, 0, 1, 1);
+
+    // Arena
+    arena.render(ctx);
     
-    // Hintergrund
-    draw.drawRectF(ctx, 0, 0, 1, 1, "#6bbfd9");
-    
-    const grass_height = 1/4;
-    draw.drawRectF(ctx, 0, 0, 1, grass_height, "#51c468");
-
-    // Spieler
-    player.forEach(player => {
-        draw.drawRectF(ctx, player.posX, player.posY, player.width, player.height, player.color);
-    })
-
-    // Basketball
-    draw.drawCircleF(ctx, basketBall.posX, basketBall.posY, basketBall.radius, basketBall.color);
-    draw.drawText(ctx, basketBall.posX, basketBall.posY, 1/8, "🏀", "#fff", "Arial", "center")
-
     // Start-Hinweis
     if (!gameRunning) {
-        draw.drawText(ctx, 1/2, 1/2, 1/8, "Drücke „Spiel starten“", "#fff", "Arial", "center");
+        draw.drawText(ctx, { x: 1/2, y: 1/2}, 1/8, "Drücke „Spiel starten“", "#fff", "Arial", "center", ETextAnchor.C);
     }
-}
-
-// --------------------------------
-// UI
-// --------------------------------
-
-function updateUI() {
-    scoreElement.textContent = score;
-    livesElement.textContent = lives;
 }
 
 // --------------------------------
 // Game Loop
 // --------------------------------
 
-function gameLoop() {
-    update();
-    drawFrame();
+// hard fps cap limit (switch to delta frame time in other branchw)
+let lastTime = 0;
+const fps = 60;
+const frameTime = 1000 / fps;
+const currentlySelectArena = arena;
 
+function gameLoop(currentTime) {
+    if (currentTime - lastTime < frameTime) {
+        // skip frame -> go to next
+        requestAnimationFrame(gameLoop);
+        return;
+    }
+    
+    update(currentlySelectArena, keys);
+    drawFrame(ctx);
+    
+    lastTime = currentTime;
     requestAnimationFrame(gameLoop);
 }
 
